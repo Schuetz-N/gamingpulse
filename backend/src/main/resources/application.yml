@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: gamingpulse-backend
+
+  datasource:
+    url: jdbc:sqlite:${DB_PATH:/app/data/gamingpulse.db}
+    driver-class-name: org.sqlite.JDBC
+
+  jpa:
+    database-platform: org.hibernate.community.dialect.SQLiteDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+gamingpulse:
+  ollama-url: ${OLLAMA_URL:http://ollama:11434}
+  n8n-url: ${N8N_URL:http://n8n:5678}
