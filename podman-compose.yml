@@ -56,6 +56,15 @@ services:
       - N8N_URL=http://n8n:5678
       - SPRING_PROFILES_ACTIVE=prod
 
+  dashboard:
+    build: ./dashboard
+    container_name: gamingpulse-dashboard
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
 volumes:
   n8n_data:
   ollama_data:
