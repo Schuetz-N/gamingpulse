@@ -1,0 +1,8 @@
+name: VideoCardz
+type: rss
+url: https://videocardz.com/feed
+category: hardware
+enabled: true
+poll_interval_minutes: 30
+filters:
+  min_word_count: 50

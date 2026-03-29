@@ -1,0 +1,7 @@
+name: Digital Foundry
+type: youtube
+channel_id: UC9PBzalIcEQCsiIkq36PyUA
+url: https://www.youtube.com/feeds/videos.xml?channel_id=UC9PBzalIcEQCsiIkq36PyUA
+category: hardware
+enabled: true
+poll_interval_minutes: 60

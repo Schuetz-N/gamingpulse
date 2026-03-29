@@ -1,0 +1,12 @@
+name: Eurogamer
+type: rss
+url: https://www.eurogamer.net/feed
+category: gaming
+enabled: true
+poll_interval_minutes: 30
+filters:
+  exclude_keywords:
+    - deals
+    - sale
+    - buying guide
+  min_word_count: 100

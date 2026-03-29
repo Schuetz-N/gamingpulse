@@ -1,0 +1,10 @@
+name: TechPowerUp
+type: rss
+url: https://www.techpowerup.com/rss/news
+category: hardware
+enabled: true
+poll_interval_minutes: 30
+filters:
+  exclude_keywords:
+    - giveaway
+  min_word_count: 80

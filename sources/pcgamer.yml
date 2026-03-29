@@ -1,0 +1,12 @@
+name: PC Gamer
+type: rss
+url: https://www.pcgamer.com/rss/
+category: gaming
+enabled: true
+poll_interval_minutes: 30
+filters:
+  exclude_keywords:
+    - sponsored
+    - best deals
+    - buying guide
+  min_word_count: 100

@@ -1,0 +1,11 @@
+name: Rock Paper Shotgun
+type: rss
+url: https://www.rockpapershotgun.com/feed/news
+category: gaming
+enabled: true
+poll_interval_minutes: 30
+filters:
+  exclude_keywords:
+    - deals
+    - sale
+  min_word_count: 100

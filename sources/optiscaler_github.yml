@@ -1,0 +1,9 @@
+name: OptiScaler Releases
+type: github_releases
+url: https://github.com/optiscaler/OptiScaler/releases.atom
+category: proton
+enabled: true
+poll_interval_minutes: 120
+notes: >
+  AMD GPU upscaling/frame gen workaround tool.
+  Tracks new releases for FSR4, DLSS replacement on AMD GPUs.

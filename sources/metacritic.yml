@@ -1,0 +1,14 @@
+name: Metacritic New Releases
+type: scraper
+url: https://www.metacritic.com/browse/game/all/date/new-releases/
+category: gaming
+enabled: false
+poll_interval_minutes: 120
+notes: >
+  Metacritic has no public RSS feed.
+  Requires custom Spring Boot scraper (Phase 2b).
+  Will be enabled once scraper is built.
+filters:
+  min_score: 70
+  platforms:
+    - PC

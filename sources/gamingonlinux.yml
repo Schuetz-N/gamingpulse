@@ -1,0 +1,8 @@
+name: GamingOnLinux
+type: rss
+url: https://www.gamingonlinux.com/article_rss.php
+category: proton
+enabled: true
+poll_interval_minutes: 30
+filters:
+  min_word_count: 50

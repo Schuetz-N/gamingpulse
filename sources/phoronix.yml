@@ -1,0 +1,20 @@
+name: Phoronix
+type: rss
+url: https://www.phoronix.com/rss.php
+category: hardware
+enabled: true
+poll_interval_minutes: 45
+filters:
+  include_keywords:
+    - GPU
+    - AMD
+    - NVIDIA
+    - Radeon
+    - GeForce
+    - ROCm
+    - Mesa
+    - Vulkan
+    - driver
+    - benchmark
+    - Linux gaming
+  min_word_count: 80
