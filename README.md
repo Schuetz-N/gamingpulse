@@ -10,27 +10,27 @@ GamingPulse polls RSS feeds from major gaming and tech outlets every 30 minutes.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                    Podman Compose Stack                       │
+│                    Podman Compose Stack                      │
 │                                                              │
-│  ┌───────────┐    ┌───────────┐    ┌──────────────────────┐ │
-│  │   n8n     │───▶│  Ollama   │    │   Spring Boot API    │ │
-│  │  :5678    │◀───│  :11434   │    │       :8080          │ │
-│  │           │    │           │    │                      │ │
-│  │ Workflows │    │ ROCm GPU  │    │ - Dedup (SQLite)     │ │
-│  │ RSS Feeds │    │ llama3.1  │    │ - Post history       │ │
-│  │ Telegram  │    │ 8B Q8     │    │ - Health checks      │ │
-│  └─────┬─────┘    └───────────┘    │ - Dashboard REST API │ │
-│        │               ▲           └──────────┬───────────┘ │
-│        │               │                      │             │
-│        │          ┌────┴───────┐    ┌─────────┴──────────┐ │
-│        │          │ AMD GPU    │    │   Vue 3 Dashboard   │ │
-│        │          │ RX7900 GRE │    │      :3000          │ │
-│        │          │ 16GB VRAM  │    │                     │ │
-│        │          └────────────┘    │ - Service status     │ │
-│        ▼                           │ - Post history       │ │
-│  ┌───────────┐                     │ - Error log          │ │
-│  │  SQLite   │◀────────────────────┘                     │ │
-│  └───────────┘                                            │ │
+│  ┌───────────┐    ┌───────────┐    ┌──────────────────────┐  │
+│  │   n8n     │───▶│  Ollama  │    │   Spring Boot API    │  │
+│  │  :5678    │◀───│  :11434  │    │       :8080          │  │
+│  │           │    │           │    │                      │  │
+│  │ Workflows │    │ ROCm GPU  │    │ - Dedup (SQLite)     │  │
+│  │ RSS Feeds │    │ llama3.1  │    │ - Post history       │  │
+│  │ Telegram  │    │ 8B Q8     │    │ - Health checks      │  │
+│  └─────┬─────┘    └───────────┘    │ - Dashboard REST API │  │
+│        │               ▲           └──────────┬───────────┘  │
+│        │               │                      │              │
+│        │          ┌────┴───────┐    ┌─────────┴──────────┐   │
+│        │          │ AMD GPU    │    │   Vue 3 Dashboard  │   │
+│        │          │ RX7900 GRE │    │      :3000         │   │
+│        │          │ 16GB VRAM  │    │                    │   │
+│        │          └────────────┘    │ - Service status   │   │
+│        ▼                           │ - Post history      │   │
+│  ┌───────────┐                     │ - Error log         │   │
+│  │  SQLite   │◀────────────────────┘                    │   │
+│  └───────────┘                                           │   │
 └──────────────────────────────────────────────────────────────┘
         │
         ▼
