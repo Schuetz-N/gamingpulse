@@ -1,0 +1,621 @@
+{
+  "name": "GamingPulse - RSS Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -752,
+        0
+      ],
+      "id": "faa3417f-0ce2-4840-99c2-a0732ce31427",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst sourceMap = {\n  'pcgamer.com': { source: 'PC Gamer', category: 'gaming' },\n  'rockpapershotgun.com': { source: 'Rock Paper Shotgun', category: 'gaming' },\n  'eurogamer.net': { source: 'Eurogamer', category: 'gaming' },\n  'techpowerup.com': { source: 'TechPowerUp', category: 'hardware' },\n  'phoronix.com': { source: 'Phoronix', category: 'hardware' },\n  'gamingonlinux.com': { source: 'GamingOnLinux', category: 'proton' },\n  'youtube.com': { source: 'Digital Foundry', category: 'hardware' },\n  'github.com/optiscaler': { source: 'OptiScaler', category: 'proton' }\n};\n\nconst getDomain = (url) => {\n  if (url.includes('github.com/optiscaler')) return 'github.com/optiscaler';\n  if (url.includes('youtube.com')) return 'youtube.com';\n  if (url.includes('pcgamer.com')) return 'pcgamer.com';\n  if (url.includes('rockpapershotgun.com')) return 'rockpapershotgun.com';\n  if (url.includes('eurogamer.net')) return 'eurogamer.net';\n  if (url.includes('techpowerup.com')) return 'techpowerup.com';\n  if (url.includes('phoronix.com')) return 'phoronix.com';\n  if (url.includes('gamingonlinux.com')) return 'gamingonlinux.com';\n  return '';\n};\n\nconst cleanText = (str) => (str || '')\n  .replace(/\\s+/g, ' ')\n  .replace(/[\"\"\"]/g, \"'\")\n  .replace(/\\\\/g, '')\n  .replace(/[\\r\\n\\t]/g, ' ')\n  .replace(/<[^>]*>/g, '')\n  .substring(0, 1500)\n  .trim();\n\nconst newItems = [];\nconst seenInBatch = {};\n\nfor (const item of items) {\n  const rawUrl = item.json.link || item.json.id || '';\n  if (!rawUrl || seenInBatch[rawUrl]) continue;\n  seenInBatch[rawUrl] = true;\n\n  const domain = getDomain(rawUrl);\n  const meta = sourceMap[domain] || { source: 'Unknown', category: 'gaming' };\n  const title = cleanText(item.json.title);\n\n  const candidates = [\n    item.json.content,\n    item.json['content:encoded'],\n    item.json.description,\n    item.json.contentSnippet,\n    item.json.summary\n  ].filter(Boolean);\n  const desc = cleanText(candidates.sort((a, b) => b.length - a.length)[0] || '');\n\n  const isYouTube = domain === 'youtube.com';\n\n  newItems.push({\n    json: {\n      title: title,\n      link: rawUrl,\n      description: desc,\n      source: meta.source,\n      category: meta.category,\n      skipOllama: isYouTube,\n      ollamaPrompt: isYouTube ? 'Reply with only: OK' : 'Summarize this news in 2-3 sentences. Output ONLY the summary, nothing else. No introductions, no prefixes, no meta-commentary. --- Title: ' + title + ' --- Content: ' + (desc || 'No content provided, summarize from title only.')\n    }\n  });\n}\n\nif (newItems.length === 0) return [];\nreturn newItems.slice(0, 20);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        0
+      ],
+      "id": "7143bfb3-f325-4873-9dd9-3a494f05eb9d",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ollama:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama3.1:8b\",\n  \"prompt\": \"{{ $json.ollamaPrompt }}\",\n  \"stream\": false\n}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1248,
+        0
+      ],
+      "id": "3b1d7f01-e235-400c-8310-dda59747b78b",
+      "name": "HTTP Request",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const original = $('Code in JavaScript').item.json;\nconst ollama = $('HTTP Request').item.json;\n\nconst category = original.category || 'gaming';\nconst title = original.title || 'No title';\nconst link = original.link || '';\n\nconst hashtag = { gaming: '#gaming', hardware: '#hardware', proton: '#proton' }[category] || '#gaming';\nconst emoji = { gaming: '🎮', hardware: '🔧', proton: '🐧' }[category] || '🎮';\n\nlet msg;\n\nif (original.skipOllama) {\n  msg = `${hashtag}\\n\\n${emoji} ${title}\\n\\n${link}`;\n} else {\n  let summary = (ollama.response || 'No summary available').trim();\n  \n  summary = summary\n    .replace(/^(here is|here's|here are)[^:]*:\\s*/i, '')\n    .replace(/^(summary|overview|in summary)[^:]*:\\s*/i, '')\n    .replace(/^(the article|this article|this news)[^.]*\\.\\s*/i, '')\n    .replace(/^\\s*\\n+/g, '')\n    .trim();\n\n  msg = `${hashtag}\\n\\n${emoji} *${title}*\\n\\n${summary}\\n\\n${link}`;\n}\n\nreturn { json: { message: msg } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1488,
+        0
+      ],
+      "id": "f581b3f6-5af2-44ae-b19f-c9b8d38f2d4f",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "chatId": "-1003885000672",
+        "text": "={{ $json.message }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_web_page_preview": false,
+          "parse_mode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1712,
+        0
+      ],
+      "id": "7d114ebb-369b-4005-8158-8678b9fd6443",
+      "name": "Send a text message",
+      "webhookId": "d4ddf247-1478-4246-b8c8-44f1da248037",
+      "credentials": {
+        "telegramApi": {
+          "id": "gbYp8j1ZCYYjCMt5",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        464,
+        0
+      ],
+      "id": "abd91505-04ce-48d0-8b03-6a6177abf418",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2112,
+        16
+      ],
+      "id": "95626894-4d71-4f44-bcc5-7ef5789c15ec",
+      "name": "Wait",
+      "webhookId": "fa08314e-270c-47b3-8ba6-50afb72634de"
+    },
+    {
+      "parameters": {
+        "url": "https://www.pcgamer.com/rss/",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -336,
+        -480
+      ],
+      "id": "812cd150-4d21-431f-be28-b46b3af48dc6",
+      "name": "RSS PC Gamer"
+    },
+    {
+      "parameters": {
+        "url": "https://www.rockpapershotgun.com/feed/news",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -336,
+        -336
+      ],
+      "id": "82ab8770-734b-47b5-b1a6-fee66f73a7f3",
+      "name": "RSS Rock Paper Shotgun"
+    },
+    {
+      "parameters": {
+        "url": "https://www.eurogamer.net/feed",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -336,
+        -192
+      ],
+      "id": "23c68775-5f7b-411b-8b1e-772f20f51cb7",
+      "name": "RSS Eurogamer"
+    },
+    {
+      "parameters": {
+        "url": "https://www.techpowerup.com/rss/news",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -336,
+        -16
+      ],
+      "id": "43082b95-4438-4ccd-b13c-513633c10794",
+      "name": "RSS TechPowerUp"
+    },
+    {
+      "parameters": {
+        "url": "https://www.gamingonlinux.com/article_rss.php",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -336,
+        176
+      ],
+      "id": "473272a3-ba30-4a12-af98-c615ae6ea979",
+      "name": "RSS GamingOnLinux"
+    },
+    {
+      "parameters": {
+        "url": "https://www.phoronix.com/rss.php",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -336,
+        352
+      ],
+      "id": "f76dca44-ffe6-452f-9233-7df70cf99684",
+      "name": "RSS Phoronix"
+    },
+    {
+      "parameters": {
+        "numberInputs": 8
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        64,
+        -80
+      ],
+      "id": "5a40ff6e-06be-4135-a118-45edd44fd955",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC9PBzalIcEQCsiIkq36PyUA",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -336,
+        528
+      ],
+      "id": "f3597339-2e98-449e-9055-9b27af4a320c",
+      "name": "RSS Digital Foundry"
+    },
+    {
+      "parameters": {
+        "url": "https://github.com/optiscaler/OptiScaler/releases.atom",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -336,
+        704
+      ],
+      "id": "3fbf2c16-cf72-401e-9e63-4b2cc215f173",
+      "name": "RSS Optiscaler"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8080/api/dedup/check",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "url",
+              "value": "={{ $json.link }}"
+            },
+            {
+              "name": "source",
+              "value": "={{ $json.source }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        704,
+        16
+      ],
+      "id": "52797eb8-a343-48b0-ab85-40fb8c4843df",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "79ae7786-7278-4f8c-a7d3-35a02d920041",
+              "leftValue": "={{ $json.isNew }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        896,
+        16
+      ],
+      "id": "24b10ee3-f390-4ef9-97ca-25ba89bda87c",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8080/api/posts",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "title",
+              "value": "={{ $('Code in JavaScript').item.json.title }}"
+            },
+            {
+              "name": "link",
+              "value": "={{ $('Code in JavaScript').item.json.link }}"
+            },
+            {
+              "name": "source",
+              "value": "={{ $('Code in JavaScript').item.json.source }}"
+            },
+            {
+              "name": "category",
+              "value": "={{ $('Code in JavaScript').item.json.category }}"
+            },
+            {
+              "name": "summary",
+              "value": "={{ $json.message }}"
+            },
+            {
+              "name": "success",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1904,
+        0
+      ],
+      "id": "6580d962-fe58-4fb1-bc74-5805c591b14e",
+      "name": "HTTP Request2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "RSS PC Gamer",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS Rock Paper Shotgun",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS Eurogamer",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS TechPowerUp",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS GamingOnLinux",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS Phoronix",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS Digital Foundry",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS Optiscaler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS PC Gamer": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Rock Paper Shotgun": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "RSS Eurogamer": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "RSS TechPowerUp": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "RSS GamingOnLinux": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "RSS Phoronix": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Digital Foundry": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
+    },
+    "RSS Optiscaler": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 7
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "88716ea4-4088-4c5d-9afc-a717f14461da",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "dc36f107d716952b8712443a95839ccfdeb3cfcab49776b7517b0ec4ad582e59"
+  },
+  "id": "gLA4oxDl1dFzTIsK",
+  "tags": []
+}
