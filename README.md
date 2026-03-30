@@ -13,8 +13,8 @@ GamingPulse polls RSS feeds from major gaming and tech outlets every 30 minutes.
 │                    Podman Compose Stack                      │
 │                                                              │
 │  ┌───────────┐    ┌───────────┐    ┌──────────────────────┐  │
-│  │   n8n     │───▶│  Ollama  │    │   Spring Boot API    │  │
-│  │  :5678    │◀───│  :11434  │    │       :8080          │  │
+│  │   n8n     │──▶│  Ollama   │    │   Spring Boot API    │  │
+│  │  :5678    │◀──│  :11434   │    │       :8080          │  │
 │  │           │    │           │    │                      │  │
 │  │ Workflows │    │ ROCm GPU  │    │ - Dedup (SQLite)     │  │
 │  │ RSS Feeds │    │ llama3.1  │    │ - Post history       │  │
@@ -27,8 +27,8 @@ GamingPulse polls RSS feeds from major gaming and tech outlets every 30 minutes.
 │        │          │ RX7900 GRE │    │      :3000         │   │
 │        │          │ 16GB VRAM  │    │                    │   │
 │        │          └────────────┘    │ - Service status   │   │
-│        ▼                           │ - Post history      │   │
-│  ┌───────────┐                     │ - Error log         │   │
+│        ▼                            │ - Post history     │   │
+│  ┌───────────┐                      │ - Error log        │   │
 │  │  SQLite   │◀────────────────────┘                    │   │
 │  └───────────┘                                           │   │
 └──────────────────────────────────────────────────────────────┘
