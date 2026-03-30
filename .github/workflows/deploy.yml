@@ -36,8 +36,19 @@ jobs:
             sleep 3
             podman-compose up -d --build
 
-            echo "Waiting for services..."
-            sleep 90
+            echo "Waiting for initial boot..."
+            sleep 30
+
+            echo "Waiting for n8n to be ready..."
+            for i in $(seq 1 24); do
+              N8N_CODE=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:5678 || echo "000")
+              if [ "$N8N_CODE" = "200" ]; then
+                echo "n8n ready after ~$((i*5))s"
+                break
+              fi
+              echo "n8n not ready yet (attempt $i/24)..."
+              sleep 5
+            done
 
             BACKEND=$(curl -sf http://localhost:8080/api/status/health || echo '{"status":"failed"}')
             echo "Backend health: $BACKEND"
