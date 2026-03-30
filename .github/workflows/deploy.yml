@@ -36,9 +36,9 @@ jobs:
             chmod 600 .env
 
             # Build und Deployment mit sudo (wichtig für Rocky Linux)
-            sudo podman-compose build
-            sudo podman-compose down || true
-            sudo podman-compose up -d
+            podman-compose build
+            podman-compose down || true
+            podman-compose up -d
 
             # Warten, bis die Container oben sind
             echo "Waiting for services..."
@@ -57,9 +57,9 @@ jobs:
             # Validierung des Deployments
             if echo "$BACKEND" | grep -q "up"; then
               echo "✅ Deployment successful"
-              sudo podman image prune -f
+              podman image prune -f
             else
               echo "❌ Backend health check failed"
-              sudo podman-compose logs --tail 20
+              podman-compose logs --tail 20
               exit 1
             fi
