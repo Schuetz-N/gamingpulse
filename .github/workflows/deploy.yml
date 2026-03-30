@@ -39,24 +39,34 @@ jobs:
             echo "Waiting for initial boot..."
             sleep 30
 
-            echo "Waiting for n8n to be ready..."
-            for i in $(seq 1 24); do
-              N8N_CODE=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:5678 || echo "000")
+            echo "Waiting for n8n API to be truly ready..."
+            for i in $(seq 1 36); do
+              N8N_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5678/healthz || echo "000")
               if [ "$N8N_CODE" = "200" ]; then
                 echo "n8n ready after ~$((i*5))s"
                 break
               fi
-              echo "n8n not ready yet (attempt $i/24)..."
+              echo "n8n not ready yet (attempt $i/36)..."
               sleep 5
             done
 
-            BACKEND=$(curl -s http://localhost:8080/api/status/health || echo '{"status":"failed"}')
+            echo "Waiting for backend health to stabilize..."
+            for i in $(seq 1 12); do
+              BACKEND=$(curl -s http://localhost:8080/api/status/health || echo '{"status":"failed"}')
+              if echo "$BACKEND" | grep -q '"up"'; then
+                echo "Backend healthy after ~$((i*5))s"
+                break
+              fi
+              echo "Backend not ready yet (attempt $i/12)..."
+              sleep 5
+            done
+
             echo "Backend health: $BACKEND"
 
-            N8N_CODE=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:5678 || echo "000")
+            N8N_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5678 || echo "000")
             echo "n8n HTTP status: $N8N_CODE"
 
-            DASH_CODE=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:3000 || echo "000")
+            DASH_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 || echo "000")
             echo "Dashboard HTTP status: $DASH_CODE"
 
             if echo "$BACKEND" | grep -q '"up"'; then
