@@ -9,14 +9,16 @@ services:
       - "5678:5678"
     volumes:
       - n8n_data:/home/node/.n8n
+    networks:
+      - gamingpulse_net
     environment:
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=admin
       - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD}
       - GENERIC_TIMEZONE=Europe/Berlin
       - NODE_FUNCTION_ALLOW_BUILTIN=fs
-    depends_on:
-      - backend
+      # Falls du n8n über die IP/Browser ohne HTTPS aufrufst:
+      - N8N_SECURE_COOKIE=false 
 
   backend:
     build: ./backend
@@ -26,11 +28,15 @@ services:
       - "8080:8080"
     volumes:
       - db_data:/app/data
+    networks:
+      - gamingpulse_net
     environment:
       - DB_PATH=/app/data/gamingpulse.db
       - GAMINGPULSE_N8N_URL=http://n8n:5678
       - GROQ_API_KEY=${GROQ_API_KEY}
       - SPRING_PROFILES_ACTIVE=prod
+    depends_on:
+      - n8n
 
   dashboard:
     build: ./dashboard
@@ -38,8 +44,14 @@ services:
     restart: always
     ports:
       - "3000:80"
+    networks:
+      - gamingpulse_net
     depends_on:
       - backend
+
+networks:
+  gamingpulse_net:
+    driver: bridge
 
 volumes:
   n8n_data:
