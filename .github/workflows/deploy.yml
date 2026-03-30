@@ -23,10 +23,10 @@ jobs:
           script: |
             cd /opt/gamingpulse
 
-            # Pull latest code
+            # Neuesten Code holen
             git pull origin main
 
-            # Write .env from secrets
+            # .env Datei aus GitHub Secrets schreiben
             cat > .env << 'ENVEOF'
             N8N_PASSWORD=${{ secrets.N8N_PASSWORD }}
             TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -35,16 +35,16 @@ jobs:
             ENVEOF
             chmod 600 .env
 
-            # Build and deploy
-            podman-compose build
-            podman-compose down
-            podman-compose up -d
+            # Build und Deployment mit sudo (wichtig für Rocky Linux)
+            sudo podman-compose build
+            sudo podman-compose down || true
+            sudo podman-compose up -d
 
-            # Wait for services
+            # Warten, bis die Container oben sind
             echo "Waiting for services..."
             sleep 15
 
-            # Health check
+            # Health checks (Lokal auf dem Server)
             BACKEND=$(curl -sf http://localhost:8080/api/status/health || echo "FAILED")
             echo "Backend health: $BACKEND"
 
@@ -54,10 +54,12 @@ jobs:
             DASH=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:3000 || echo "000")
             echo "Dashboard status: $DASH"
 
+            # Validierung des Deployments
             if echo "$BACKEND" | grep -q "up"; then
               echo "✅ Deployment successful"
+              sudo podman image prune -f
             else
               echo "❌ Backend health check failed"
-              podman-compose logs --tail 20
+              sudo podman-compose logs --tail 20
               exit 1
             fi
