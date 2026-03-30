@@ -50,7 +50,7 @@ jobs:
               sleep 5
             done
 
-            BACKEND=$(curl -sf http://localhost:8080/api/status/health || echo '{"status":"failed"}')
+            BACKEND=$(curl -s http://localhost:8080/api/status/health || echo '{"status":"failed"}')
             echo "Backend health: $BACKEND"
 
             N8N_CODE=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:5678 || echo "000")
