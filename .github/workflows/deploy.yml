@@ -37,7 +37,7 @@ jobs:
             podman-compose up -d --build
 
             echo "Waiting for services..."
-            sleep 45
+            sleep 90
 
             BACKEND=$(curl -sf http://localhost:8080/api/status/health || echo '{"status":"failed"}')
             echo "Backend health: $BACKEND"
@@ -48,7 +48,7 @@ jobs:
             DASH_CODE=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:3000 || echo "000")
             echo "Dashboard HTTP status: $DASH_CODE"
 
-            if echo "$BACKEND" | grep -q '"ok"'; then
+            if echo "$BACKEND" | grep -q '"up"'; then
               echo "✅ Deployment successful"
               podman image prune -f
             else
