@@ -23,29 +23,34 @@ jobs:
           script: |
             cd /opt/gamingpulse
 
-            # Neuesten Code holen
-            git pull origin main
+            # 1. Neuesten Code holen
+            sudo git pull origin main
 
-            # .env Datei aus GitHub Secrets schreiben
+            # 2. .env Datei schreiben
             cat > .env << 'ENVEOF'
             N8N_PASSWORD=${{ secrets.N8N_PASSWORD }}
             TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
             TELEGRAM_CHANNEL_ID=${{ secrets.TELEGRAM_CHANNEL_ID }}
             GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
             ENVEOF
-            chmod 600 .env
+            sudo chmod 600 .env
 
-            # Build und Deployment mit sudo (wichtig für Rocky Linux)
-            podman-compose build
-            podman-compose down || true
-            podman-compose up -d
+            # 3. Aggressives Cleanup (Verhindert "Port already in use")
+            # Wir stoppen den alten Stack und killen hängende Port-Proxy-Prozesse
+            sudo podman-compose down || true
+            sudo killall -9 rootlessport conmon 2>/dev/null || true
 
-            # Warten, bis die Container oben sind
-            echo "Waiting for services..."
-            sleep 15
+            # 4. Build und Neustart
+            # --build erzwingt das Neuerstellen der Images (Backend/Dashboard)
+            sudo podman-compose up -d --build
 
-            # Health checks (Lokal auf dem Server)
-            BACKEND=$(curl -sf http://localhost:8080/api/status/health || echo "FAILED")
+            # 5. Warten, bis die Container initialisiert sind
+            # Java & n8n brauchen auf VPS oft etwas länger
+            echo "Waiting for services to boot..."
+            sleep 30
+
+            # 6. Health checks (Lokal auf dem Server)
+            BACKEND=$(curl -sf http://localhost:8080/api/status/health || echo '{"status":"failed"}')
             echo "Backend health: $BACKEND"
 
             N8N=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:5678 || echo "000")
@@ -54,12 +59,13 @@ jobs:
             DASH=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:3000 || echo "000")
             echo "Dashboard status: $DASH"
 
-            # Validierung des Deployments
+            # 7. Validierung
+            # Wir prüfen, ob das Backend "up" meldet
             if echo "$BACKEND" | grep -q "up"; then
               echo "✅ Deployment successful"
-              podman image prune -f
+              sudo podman image prune -f
             else
               echo "❌ Backend health check failed"
-              podman-compose logs --tail 20
+              sudo podman-compose logs --tail 50
               exit 1
             fi
