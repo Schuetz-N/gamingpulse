@@ -24,7 +24,7 @@ jobs:
             cd /opt/gamingpulse
 
             # 1. Neuesten Code holen
-            sudo git pull origin main
+            git pull origin main
 
             # 2. .env Datei schreiben
             cat > .env << 'ENVEOF'
@@ -33,16 +33,16 @@ jobs:
             TELEGRAM_CHANNEL_ID=${{ secrets.TELEGRAM_CHANNEL_ID }}
             GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
             ENVEOF
-            sudo chmod 600 .env
+            chmod 600 .env
 
             # 3. Aggressives Cleanup (Verhindert "Port already in use")
             # Wir stoppen den alten Stack und killen hängende Port-Proxy-Prozesse
-            sudo podman-compose down || true
-            sudo killall -9 rootlessport conmon 2>/dev/null || true
+            podman-compose down || true
+            killall -9 rootlessport conmon 2>/dev/null || true
 
             # 4. Build und Neustart
             # --build erzwingt das Neuerstellen der Images (Backend/Dashboard)
-            sudo podman-compose up -d --build
+            podman-compose up -d --build
 
             # 5. Warten, bis die Container initialisiert sind
             # Java & n8n brauchen auf VPS oft etwas länger
@@ -63,9 +63,9 @@ jobs:
             # Wir prüfen, ob das Backend "up" meldet
             if echo "$BACKEND" | grep -q "up"; then
               echo "✅ Deployment successful"
-              sudo podman image prune -f
+              podman image prune -f
             else
               echo "❌ Backend health check failed"
-              sudo podman-compose logs --tail 50
+              podman-compose logs --tail 50
               exit 1
             fi
