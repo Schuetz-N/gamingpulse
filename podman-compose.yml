@@ -1,4 +1,7 @@
-version: "3.8"
+networks:
+  gamingpulse_net:
+    driver: bridge
+
 services:
   n8n:
     image: docker.io/n8nio/n8n:latest
@@ -7,12 +10,12 @@ services:
       - 8.8.8.8
     container_name: gamingpulse-n8n
     restart: always
-#    ports:
-#      - "5678:5678"
     volumes:
       - n8n_data:/home/node/.n8n
     networks:
-      - gamingpulse_net
+      gamingpulse_net:
+        aliases:
+          - n8n
     environment:
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=admin
@@ -49,10 +52,6 @@ services:
       - gamingpulse_net
     depends_on:
       - backend
-
-networks:
-  gamingpulse_net:
-    driver: bridge
 
 volumes:
   n8n_data:
