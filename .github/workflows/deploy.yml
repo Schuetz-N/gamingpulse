@@ -40,29 +40,43 @@ jobs:
             echo "Waiting for initial boot..."
             sleep 30
 
+            echo "--- Container status after boot ---"
+            podman ps -a
+
             echo "Waiting for n8n to be internally ready..."
             for i in $(seq 1 36); do
               N8N_STATUS=$(podman exec gamingpulse-n8n node -e \
                 "const h=require('http');h.get('http://localhost:5678/rest/settings',(r)=>{process.stdout.write(String(r.statusCode));process.exit(0);}).on('error',()=>{process.stdout.write('000');process.exit(0);})" \
                 2>/dev/null || echo "000")
+              echo "n8n status check $i/36: HTTP $N8N_STATUS"
               if [ "$N8N_STATUS" = "200" ]; then
                 echo "n8n ready after ~$((i*5))s"
                 break
               fi
-              echo "n8n not ready yet (attempt $i/36)..."
+              if [ "$i" = "36" ]; then
+                echo "--- n8n logs ---"
+                podman logs gamingpulse-n8n --tail 20
+              fi
               sleep 5
             done
 
             echo "Waiting for backend health to stabilize..."
             for i in $(seq 1 24); do
               BACKEND=$(podman exec gamingpulse-n8n wget -qO- http://backend:8080/api/status/health 2>/dev/null || echo '{"status":"failed"}')
+              echo "Backend health check $i/24: $BACKEND"
               if echo "$BACKEND" | grep -q '"up"'; then
                 echo "Backend healthy after ~$((i*5))s"
                 break
               fi
-              echo "Backend not ready yet (attempt $i/24)..."
+              if [ "$i" = "24" ]; then
+                echo "--- Backend logs ---"
+                podman logs gamingpulse-backend --tail 30
+              fi
               sleep 5
             done
+
+            echo "--- Final container status ---"
+            podman ps -a
 
             echo "Backend health: $BACKEND"
 

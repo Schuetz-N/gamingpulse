@@ -20,7 +20,7 @@ services:
       - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD}
       - GENERIC_TIMEZONE=Europe/Berlin
       - NODE_FUNCTION_ALLOW_BUILTIN=fs
-      - N8N_SECURE_COOKIE=false
+      - N8N_SECURE_COOKIE=false  # TODO: auf true setzen sobald HTTPS/Reverse-Proxy eingerichtet ist
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz || exit 1"]
       interval: 30s
@@ -49,7 +49,7 @@ services:
       n8n:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8080/api/status/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/status/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
