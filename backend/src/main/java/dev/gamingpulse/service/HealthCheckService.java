@@ -28,7 +28,7 @@ public class HealthCheckService {
 
     @Scheduled(fixedDelay = 30000, initialDelay = 10000)
     public void updateN8nStatus() {
-        n8nStatus = checkService(n8nUrl + "/rest/settings");
+        n8nStatus = checkService(n8nUrl + "/healthz");  // war: /rest/settings
     }
 
     public Map<String, Object> getFullStatus() {
@@ -42,7 +42,7 @@ public class HealthCheckService {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
-                    .timeout(Duration.ofSeconds(10))
+                    .timeout(Duration.ofSeconds(5))
                     .GET()
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
