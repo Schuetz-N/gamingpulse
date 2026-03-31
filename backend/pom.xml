@@ -43,6 +43,12 @@
             <artifactId>hibernate-community-dialects</artifactId>
         </dependency>
 
+        <!-- Security -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
         <!-- Actuator for health checks -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

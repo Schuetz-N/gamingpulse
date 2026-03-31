@@ -30,6 +30,7 @@ jobs:
             echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}" >> .env
             echo "TELEGRAM_CHANNEL_ID=${{ secrets.TELEGRAM_CHANNEL_ID }}" >> .env
             echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}" >> .env
+            echo "API_AUTH_TOKEN=${{ secrets.API_AUTH_TOKEN }}" >> .env
             chmod 600 .env
 
             podman-compose down || true
@@ -54,7 +55,7 @@ jobs:
 
             echo "Waiting for backend health to stabilize..."
             for i in $(seq 1 24); do
-              BACKEND=$(curl -s http://localhost:8080/api/status/health || echo '{"status":"failed"}')
+              BACKEND=$(podman exec gamingpulse-backend curl -s http://localhost:8080/api/status/health || echo '{"status":"failed"}')
               if echo "$BACKEND" | grep -q '"up"'; then
                 echo "Backend healthy after ~$((i*5))s"
                 break
@@ -65,7 +66,7 @@ jobs:
 
             echo "Backend health: $BACKEND"
 
-            DASH_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 || echo "000")
+            DASH_CODE=$(podman exec gamingpulse-dashboard wget -qO- http://localhost:80 > /dev/null 2>&1 && echo "200" || echo "000")
             echo "Dashboard HTTP status: $DASH_CODE"
 
             if echo "$BACKEND" | grep -q '"up"'; then

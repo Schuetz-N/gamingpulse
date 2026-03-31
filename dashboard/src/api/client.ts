@@ -1,7 +1,12 @@
 const BASE_URL = '/api'
+const API_TOKEN = import.meta.env.VITE_API_AUTH_TOKEN
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(`${BASE_URL}${url}`)
+  const response = await fetch(`${BASE_URL}${url}`, {
+    headers: {
+      'Authorization': `Bearer ${API_TOKEN}`
+    }
+  })
   if (!response.ok) throw new Error(`HTTP ${response.status}`)
   return response.json()
 }
@@ -15,7 +20,7 @@ export interface ServiceStatus {
 export interface StatusResponse {
   services: {
     backend: ServiceStatus
-    ollama: ServiceStatus
+    groq: ServiceStatus
     n8n: ServiceStatus
   }
   stats: {

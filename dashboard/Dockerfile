@@ -3,6 +3,8 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install
 COPY . .
+ARG VITE_API_AUTH_TOKEN
+ENV VITE_API_AUTH_TOKEN=$VITE_API_AUTH_TOKEN
 RUN npm run build
 
 FROM docker.io/nginx:alpine
