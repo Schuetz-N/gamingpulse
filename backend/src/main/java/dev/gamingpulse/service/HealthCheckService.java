@@ -1,6 +1,7 @@
 package dev.gamingpulse.service;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
@@ -14,6 +15,7 @@ import java.util.Map;
 public class HealthCheckService {
 
     private final HttpClient httpClient;
+    private volatile Map<String, Object> n8nStatus = Map.of("status", "starting");
 
     @Value("${gamingpulse.n8n-url:http://n8n:5678}")
     private String n8nUrl;
@@ -24,10 +26,15 @@ public class HealthCheckService {
                 .build();
     }
 
+    @Scheduled(fixedDelay = 30000, initialDelay = 10000)
+    public void updateN8nStatus() {
+        n8nStatus = checkService(n8nUrl + "/rest/settings");
+    }
+
     public Map<String, Object> getFullStatus() {
         return Map.of(
                 "backend", Map.of("status", "up"),
-                "n8n", checkService(n8nUrl + "/rest/settings")
+                "n8n", n8nStatus
         );
     }
 
@@ -38,9 +45,7 @@ public class HealthCheckService {
                     .timeout(Duration.ofSeconds(10))
                     .GET()
                     .build();
-
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
             if (response.statusCode() >= 200 && response.statusCode() < 300) {
                 return Map.of("status", "up");
             } else {
