@@ -3,6 +3,9 @@ version: "3.8"
 services:
   n8n:
     image: docker.io/n8nio/n8n:latest
+    dns:
+    - 1.1.1.1
+    - 8.8.8.8
     container_name: gamingpulse-n8n
     restart: always
     ports:
