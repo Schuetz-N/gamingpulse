@@ -24,3 +24,4 @@ management:
 gamingpulse:
   ollama-url: ${OLLAMA_URL:http://ollama:11434}
   n8n-url: ${N8N_URL:http://n8n:5678}
+  groq-api-key: ${GROQ_API_KEY:}
