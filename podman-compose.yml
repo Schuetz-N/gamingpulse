@@ -33,7 +33,7 @@ services:
       - gamingpulse_net
     environment:
       - DB_PATH=/app/data/gamingpulse.db
-      - N8N_URL=http://n8n:5678
+      - GAMINGPULSE_N8N_URL=http://n8n:5678
       - GROQ_API_KEY=${GROQ_API_KEY}
       - SPRING_PROFILES_ACTIVE=prod
     depends_on:

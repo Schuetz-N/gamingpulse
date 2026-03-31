@@ -15,10 +15,7 @@ public class HealthCheckService {
 
     private final HttpClient httpClient;
 
-    @Value("${gamingpulse.ollama-url:http://ollama:11434}")
-    private String ollamaUrl;
-
-    @Value("${gamingpulse.n8n-url:http://host.containers.internal:5678}")
+    @Value("${gamingpulse.n8n-url:http://n8n:5678}")
     private String n8nUrl;
 
     public HealthCheckService() {
@@ -27,10 +24,9 @@ public class HealthCheckService {
                 .build();
     }
 
-public Map<String, Object> getFullStatus() {
+    public Map<String, Object> getFullStatus() {
         return Map.of(
                 "backend", Map.of("status", "up"),
-                "ollama", checkService(ollamaUrl + "/api/tags"),
                 "n8n", checkService(n8nUrl + "/rest/settings")
         );
     }
@@ -46,7 +42,7 @@ public Map<String, Object> getFullStatus() {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                return Map.of("status", "up", "code", response.statusCode());
+                return Map.of("status", "up");
             } else {
                 return Map.of("status", "degraded", "code", response.statusCode());
             }
