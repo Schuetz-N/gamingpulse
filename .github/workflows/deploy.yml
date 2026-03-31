@@ -55,7 +55,7 @@ jobs:
 
             echo "Waiting for backend health to stabilize..."
             for i in $(seq 1 24); do
-              BACKEND=$(podman exec gamingpulse-backend curl -s http://localhost:8080/api/status/health || echo '{"status":"failed"}')
+              BACKEND=$(podman exec gamingpulse-n8n wget -qO- http://backend:8080/api/status/health 2>/dev/null || echo '{"status":"failed"}')
               if echo "$BACKEND" | grep -q '"up"'; then
                 echo "Backend healthy after ~$((i*5))s"
                 break
