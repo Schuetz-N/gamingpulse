@@ -51,7 +51,7 @@ public Map<String, Object> getFullStatus() {
                 return Map.of("status", "degraded", "code", response.statusCode());
             }
         } catch (Exception e) {
-            return Map.of("status", "down", "error", e.getMessage());
+            return Map.of("status", "down", "error", e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
         }
     }
 }
