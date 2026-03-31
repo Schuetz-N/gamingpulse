@@ -21,6 +21,8 @@ services:
       - GENERIC_TIMEZONE=Europe/Berlin
       - NODE_FUNCTION_ALLOW_BUILTIN=fs
       - N8N_SECURE_COOKIE=false  # TODO: auf true setzen sobald HTTPS/Reverse-Proxy eingerichtet ist
+    ports:
+      - "127.0.0.1:5678:5678"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz || exit 1"]
       interval: 30s
