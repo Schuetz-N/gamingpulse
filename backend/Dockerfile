@@ -7,6 +7,7 @@ RUN mvn package -DskipTests -B
 
 FROM docker.io/eclipse-temurin:25-jre
 WORKDIR /app
+RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
 RUN mkdir -p /app/data
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
