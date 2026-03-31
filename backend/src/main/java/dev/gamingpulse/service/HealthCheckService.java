@@ -23,12 +23,13 @@ public class HealthCheckService {
     public HealthCheckService() {
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
+                .version(HttpClient.Version.HTTP_1_1)
                 .build();
     }
 
     @Scheduled(fixedDelay = 30000, initialDelay = 10000)
     public void updateN8nStatus() {
-        n8nStatus = checkService(n8nUrl + "/healthz");  // war: /rest/settings
+        n8nStatus = checkService(n8nUrl + "/healthz");
     }
 
     public Map<String, Object> getFullStatus() {

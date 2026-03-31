@@ -26,7 +26,6 @@ public class DebugController {
         result.put("java_net_preferIPv4Stack", System.getProperty("java.net.preferIPv4Stack"));
         result.put("JAVA_TOOL_OPTIONS", System.getenv("JAVA_TOOL_OPTIONS"));
 
-        // 1. DNS Auflösung
         try {
             String host = URI.create(n8nUrl).getHost();
             result.put("dns_host", host);
@@ -38,7 +37,6 @@ public class DebugController {
             result.put("dns_error", e.getMessage());
         }
 
-        // 2. TCP Connect Test
         try {
             String host = URI.create(n8nUrl).getHost();
             Instant tcpStart = Instant.now();
@@ -52,10 +50,10 @@ public class DebugController {
             result.put("tcp_error", e.getMessage());
         }
 
-        // 3. HTTP Request mit vollem Stack-Trace
         try {
             HttpClient client = HttpClient.newBuilder()
                     .connectTimeout(Duration.ofSeconds(5))
+                    .version(HttpClient.Version.HTTP_1_1)
                     .build();
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(n8nUrl + "/healthz"))
