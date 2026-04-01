@@ -2,6 +2,9 @@ package dev.gamingpulse.controller;
 
 import dev.gamingpulse.model.Post;
 import dev.gamingpulse.service.PostHistoryService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,11 +19,6 @@ public class PostController {
 
     public PostController(PostHistoryService postHistoryService) {
         this.postHistoryService = postHistoryService;
-    }
-
-    @GetMapping
-    public ResponseEntity<List<Post>> getRecentPosts() {
-        return ResponseEntity.ok(postHistoryService.getRecentPosts());
     }
 
     @PostMapping
@@ -40,7 +38,22 @@ public class PostController {
     public ResponseEntity<Map<String, Object>> getStats() {
         return ResponseEntity.ok(Map.of(
                 "todayCount", postHistoryService.getTodayPostCount(),
-                "bySource", postHistoryService.getPostCountBySource()
+                "bySource",   postHistoryService.getPostCountBySource()
         ));
+    }
+
+    @GetMapping
+    public ResponseEntity<Page<Post>> getRecentPosts(
+            @RequestParam(defaultValue = "0")  int page,
+            @RequestParam(defaultValue = "50") int size) {
+        int clampedSize = Math.min(size, 100);
+        PageRequest pageable = PageRequest.of(page, clampedSize, Sort.by("postedAt").descending());
+        return ResponseEntity.ok(postHistoryService.getRecentPostsPaged(pageable));
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<List<PostHistoryService.PostBucketEntry>> getHistory(
+            @RequestParam(defaultValue = "24h") String range) {
+        return ResponseEntity.ok(postHistoryService.getPostHistory(range));
     }
 }

@@ -32,4 +32,10 @@ public class ErrorController {
         );
         return ResponseEntity.ok(entry);
     }
+
+    // neu
+    @GetMapping("/stats")
+    public ResponseEntity<Map<String, Long>> getErrorStats() {
+        return ResponseEntity.ok(errorService.getErrorCountsBySource());
+    }
 }

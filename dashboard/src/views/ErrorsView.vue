@@ -1,94 +1,114 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { api, type ErrorEntry } from '../api/client'
+import { useErrors } from '../composables/useErrors'
+import PageHeader from '../components/ui/PageHeader.vue'
+import LoadingState from '../components/ui/LoadingState.vue'
+import EmptyState from '../components/ui/EmptyState.vue'
 
-const errors = ref<ErrorEntry[]>([])
-const loading = ref(true)
-const loadError = ref('')
-
-async function loadErrors() {
-  try {
-    errors.value = await api.getErrors()
-    loadError.value = ''
-  } catch (e) {
-    loadError.value = 'Could not load errors'
-  } finally {
-    loading.value = false
-  }
-}
+const { errors, stats, loading, error, refresh } = useErrors()
 
 function formatTime(iso: string) {
-  const d = new Date(iso)
-  return d.toLocaleString('en-GB', {
+  return new Date(iso).toLocaleString('en-GB', {
     month: 'short', day: 'numeric',
     hour: '2-digit', minute: '2-digit'
   })
 }
 
-onMounted(loadErrors)
+function totalErrors(s: Record<string, number>): number {
+  return Object.values(s).reduce((a, b) => a + b, 0)
+}
 </script>
 
 <template>
   <div>
-    <div class="page-header">
-      <h2>Error Log</h2>
-      <button class="refresh-btn" @click="loadErrors">Refresh</button>
-    </div>
+    <PageHeader title="Error Log" @refresh="refresh" />
 
-    <div v-if="loading" class="loading">Loading errors...</div>
-    <div v-else-if="loadError" class="error-msg">{{ loadError }}</div>
-    <div v-else-if="errors.length === 0" class="card empty">No errors recorded. Everything is running smoothly.</div>
+    <LoadingState v-if="loading" message="Loading errors..." />
+    <div v-else-if="error" class="error-msg">{{ error }}</div>
 
-    <div class="card" v-else>
-      <table>
-        <thead>
-          <tr>
-            <th>Time</th>
-            <th>Source</th>
-            <th>Message</th>
-            <th>URL</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="err in errors" :key="err.id">
-            <td class="time-col">{{ formatTime(err.occurredAt) }}</td>
-            <td class="source-col">{{ err.source }}</td>
-            <td class="msg-col">{{ err.message }}</td>
-            <td>
-              <a v-if="err.url" :href="err.url" target="_blank" class="url-link">Link</a>
-              <span v-else class="no-url">-</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <template v-else>
+      <div class="grid" v-if="Object.keys(stats).length > 0">
+        <div
+          class="card stat-card"
+          v-for="(count, source) in stats"
+          :key="source"
+        >
+          <div class="stat-source">{{ source }}</div>
+          <div class="stat-count">{{ count }}</div>
+          <div class="stat-label">errors (7d)</div>
+        </div>
+
+        <div class="card stat-card total">
+          <div class="stat-source">total</div>
+          <div class="stat-count">{{ totalErrors(stats) }}</div>
+          <div class="stat-label">errors (7d)</div>
+        </div>
+      </div>
+
+      <div class="card" v-if="errors.length > 0">
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Source</th>
+              <th>Message</th>
+              <th>URL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="err in errors" :key="err.id">
+              <td class="time-col">{{ formatTime(err.occurredAt) }}</td>
+              <td class="source-col">{{ err.source }}</td>
+              <td class="msg-col">{{ err.message }}</td>
+              <td>
+
+                  v-if="err.url"
+                  :href="err.url"
+                  target="_blank"
+                  class="url-link"
+                >
+                  Link
+                </a>
+                <span v-else class="no-url">—</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <EmptyState
+        v-else
+        message="No errors recorded. Everything is running smoothly."
+      />
+    </template>
   </div>
 </template>
 
 <style scoped>
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
+.stat-card {
+  text-align: center;
+  padding: 16px;
 }
 
-.page-header h2 {
-  font-size: 20px;
+.stat-source {
+  font-size: 12px;
+  color: #8b8fa3;
+  text-transform: capitalize;
+  margin-bottom: 6px;
 }
 
-.refresh-btn {
-  padding: 8px 16px;
-  background: #252830;
-  border: 1px solid #2a2d37;
+.stat-count {
+  font-size: 32px;
+  font-weight: 700;
+  color: #f87171;
+}
+
+.stat-card.total .stat-count {
   color: #e1e4ea;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 13px;
 }
 
-.refresh-btn:hover {
-  background: #2a2d37;
+.stat-label {
+  font-size: 12px;
+  color: #8b8fa3;
+  margin-top: 4px;
 }
 
 .time-col {
@@ -117,6 +137,10 @@ onMounted(loadErrors)
   color: #60a5fa;
   text-decoration: none;
   font-size: 13px;
+}
+
+.url-link:hover {
+  text-decoration: underline;
 }
 
 .no-url {

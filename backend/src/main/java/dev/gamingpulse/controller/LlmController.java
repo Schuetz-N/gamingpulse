@@ -60,7 +60,6 @@ public class LlmController {
 
                 HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-                // Rate limit — warten und retry
                 if (response.statusCode() == 429) {
                     if (attempt < MAX_RETRIES) {
                         Thread.sleep(RETRY_DELAY_MS * attempt);
@@ -69,12 +68,10 @@ public class LlmController {
                     return ResponseEntity.ok(Map.of("summary", ""));
                 }
 
-                // Anderer Fehler
                 if (response.statusCode() != 200) {
                     return ResponseEntity.ok(Map.of("summary", ""));
                 }
 
-                // JSON sauber parsen
                 JsonNode root = objectMapper.readTree(response.body());
                 String summary = root
                         .path("choices")

@@ -1,98 +1,118 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { api, type StatusResponse } from '../api/client'
+import { useStatus } from '../composables/useStatus'
+import StatusBadge from '../components/ui/StatusBadge.vue'
+import StatCard from '../components/ui/StatCard.vue'
+import LoadingState from '../components/ui/LoadingState.vue'
+import EmptyState from '../components/ui/EmptyState.vue'
+import UptimePulse from '../components/charts/UptimePulse.vue'
 
-const status = ref<StatusResponse | null>(null)
-const loading = ref(true)
-const error = ref('')
-let interval: number | null = null
+const { status, history, loading, error, refresh } = useStatus()
 
-async function loadStatus() {
-  try {
-    status.value = await api.getStatus()
-    error.value = ''
-  } catch (e) {
-    error.value = 'Could not reach backend'
-  } finally {
-    loading.value = false
-  }
-}
-
-onMounted(() => {
-  loadStatus()
-  interval = window.setInterval(loadStatus, 15000)
-})
-
-onUnmounted(() => {
-  if (interval) clearInterval(interval)
-})
-
-function statusBadge(s: string) {
-  if (s === 'up') return 'badge badge-up'
-  if (s === 'down') return 'badge badge-down'
-  return 'badge badge-degraded'
+function barWidth(count: number, all: Record<string, number>): string {
+  const max = Math.max(...Object.values(all))
+  return `${(count / max) * 100}%`
 }
 </script>
 
 <template>
   <div>
-    <div v-if="loading" class="loading">Loading status...</div>
+    <div class="page-header">
+      <h2>Status</h2>
+      <button class="refresh-btn" @click="refresh">Refresh</button>
+    </div>
+
+    <LoadingState v-if="loading" message="Loading status..." />
     <div v-else-if="error" class="error-msg">{{ error }}</div>
+
     <template v-else-if="status">
       <div class="grid">
         <div class="card">
           <h2>Services</h2>
           <div class="service-list">
-            <div class="service-row" v-for="(info, name) in status.services" :key="name">
+            <div
+              class="service-row"
+              v-for="(info, name) in status.services"
+              :key="name"
+            >
               <span class="service-name">{{ name }}</span>
-              <span :class="statusBadge(info.status)">{{ info.status }}</span>
+              <StatusBadge :status="info.status" />
             </div>
           </div>
         </div>
-        <div class="card">
-          <h2>Today</h2>
-          <div class="stat-value">{{ status.stats.postsToday }}</div>
-          <div class="stat-label">Posts sent to Telegram</div>
-        </div>
-        <div class="card">
-          <h2>Dedup Store</h2>
-          <div class="stat-value">{{ status.stats.seenUrls }}</div>
-          <div class="stat-label">URLs tracked</div>
-        </div>
+
+        <StatCard
+          title="Today"
+          :value="status.stats.postsToday"
+          label="Posts sent to Telegram"
+        />
+
+        <StatCard
+          title="Dedup Store"
+          :value="status.stats.seenUrls"
+          label="URLs tracked"
+        />
       </div>
 
-      <div class="card" v-if="Object.keys(status.stats.postsBySource).length > 0">
+      <UptimePulse :records="history" />
+
+      <div
+        class="card"
+        v-if="Object.keys(status.stats.postsBySource).length > 0"
+      >
         <h2>Posts by Source (Last 7 Days)</h2>
         <div class="source-bars">
-          <div class="source-row" v-for="(count, source) in status.stats.postsBySource" :key="source">
+          <div
+            class="source-row"
+            v-for="(count, source) in status.stats.postsBySource"
+            :key="source"
+          >
             <span class="source-name">{{ source }}</span>
             <div class="bar-container">
-              <div class="bar" :style="{ width: barWidth(count, status!.stats.postsBySource) }"></div>
+              <div
+                class="bar"
+                :style="{ width: barWidth(count, status.stats.postsBySource) }"
+              />
             </div>
             <span class="source-count">{{ count }}</span>
           </div>
         </div>
       </div>
-      <div class="card" v-else>
-        <h2>Posts by Source</h2>
-        <div class="empty">No posts yet. Wait for the pipeline to process articles.</div>
-      </div>
+      <EmptyState
+        v-else
+        message="No posts yet. Wait for the pipeline to process articles."
+      />
     </template>
   </div>
 </template>
 
-<script lang="ts">
-export default {
-  methods: {
-    barWidth(count: number, all: Record<string, number>) {
-      const max = Math.max(...Object.values(all))
-      return `${(count / max) * 100}%`
-    }
-  }
-}
-</script>
-
 <style scoped>
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.page-header h2 {
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.refresh-btn {
+  padding: 8px 16px;
+  background: #252830;
+  border: 1px solid #2a2d37;
+  color: #e1e4ea;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.15s;
+}
+
+.refresh-btn:hover {
+  background: #2a2d37;
+}
+
 .service-list {
   display: flex;
   flex-direction: column;
@@ -124,7 +144,7 @@ export default {
 }
 
 .source-name {
-  width: 140px;
+  width: 160px;
   font-size: 13px;
   flex-shrink: 0;
 }

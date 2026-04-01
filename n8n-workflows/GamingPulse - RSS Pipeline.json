@@ -76,7 +76,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        6320,
+        6624,
         1936
       ],
       "id": "51935503-fe15-45e2-9064-9f0f714e7550",
@@ -95,7 +95,7 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        6544,
+        6848,
         1936
       ],
       "id": "d34f7b0e-3d59-4584-ad54-b76e68879a7d",
@@ -126,7 +126,7 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        6944,
+        7248,
         1952
       ],
       "id": "dc825fd0-eac1-4fd5-b540-0b3d8a9bee2e",
@@ -361,7 +361,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        6736,
+        7040,
         1936
       ],
       "id": "3048d850-7033-4866-911d-c62ac7b1b6ab",
@@ -372,6 +372,40 @@
           "name": "GamingPulse Backend"
         }
       }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a5c39aaa-605f-4031-8fe2-af09dff5edfc",
+              "leftValue": "={{ $json.summary }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        6304,
+        1808
+      ],
+      "id": "d6e5bd3c-7b03-4b41-aca7-b1fccaf71322",
+      "name": "If"
     }
   ],
   "pinData": {},
@@ -432,7 +466,7 @@
       "main": [
         [
           {
-            "node": "Build Prompt",
+            "node": "If",
             "type": "main",
             "index": 0
           }
@@ -611,6 +645,17 @@
           }
         ]
       ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Build Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -618,7 +663,7 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "90611a55-80a4-4893-a70f-e1d7a6e94638",
+  "versionId": "17b71bb1-eb99-4145-8d81-0a55b4de0c8a",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "6a45e56abf1dff98cc7b1e51358496ce29f552649d795008a43aebe8309d0453"
