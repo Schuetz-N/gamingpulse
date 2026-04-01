@@ -7,7 +7,7 @@
           "interval": [
             {
               "field": "minutes",
-              "minutesInterval": 30
+              "minutesInterval": 15
             }
           ]
         }
@@ -15,32 +15,34 @@
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
       "position": [
-        -688,
-        1120
+        4080,
+        1936
       ],
-      "id": "39f491fb-091c-40b0-b6d2-1104b414d6d3",
-      "name": "Schedule Trigger1"
+      "id": "79d54d9e-41ba-4244-814e-262da6c63c67",
+      "name": "Schedule Trigger"
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\nconst sourceMap = {\n  'pcgamer.com': { source: 'PC Gamer', category: 'gaming' },\n  'rockpapershotgun.com': { source: 'Rock Paper Shotgun', category: 'gaming' },\n  'eurogamer.net': { source: 'Eurogamer', category: 'gaming' },\n  'techpowerup.com': { source: 'TechPowerUp', category: 'hardware' },\n  'phoronix.com': { source: 'Phoronix', category: 'hardware' },\n  'gamingonlinux.com': { source: 'GamingOnLinux', category: 'proton' },\n  'youtube.com': { source: 'Digital Foundry', category: 'hardware' },\n  'github.com/optiscaler': { source: 'OptiScaler', category: 'proton' },\n  'gamespot.com': { source: 'GameSpot', category: 'gaming' },\n  'ign.com': { source: 'IGN', category: 'gaming' }\n};\nconst getDomain = (url) => {\n  if (url.includes('github.com/optiscaler')) return 'github.com/optiscaler';\n  if (url.includes('youtube.com')) return 'youtube.com';\n  if (url.includes('pcgamer.com')) return 'pcgamer.com';\n  if (url.includes('rockpapershotgun.com')) return 'rockpapershotgun.com';\n  if (url.includes('eurogamer.net')) return 'eurogamer.net';\n  if (url.includes('techpowerup.com')) return 'techpowerup.com';\n  if (url.includes('phoronix.com')) return 'phoronix.com';\n  if (url.includes('gamingonlinux.com')) return 'gamingonlinux.com';\n  if (url.includes('gamespot.com')) return 'gamespot.com';\n  if (url.includes('ign.com')) return 'ign.com';\n  return '';\n};\nconst cleanText = (str) => (str || '')\n  .replace(/\\s+/g, ' ')\n  .replace(/[\"\"\"]/g, \"'\")\n  .replace(/\\\\/g, '')\n  .replace(/[\\r\\n\\t]/g, ' ')\n  .replace(/<[^>]*>/g, '')\n  .substring(0, 1500)\n  .trim();\nconst newItems = [];\nconst seenInBatch = {};\nfor (const item of items) {\n  const rawUrl = item.json.link || item.json.id || '';\n  if (!rawUrl || seenInBatch[rawUrl]) continue;\n  seenInBatch[rawUrl] = true;\n  const domain = getDomain(rawUrl);\n  const meta = sourceMap[domain] || { source: 'Unknown', category: 'gaming' };\n  const title = cleanText(item.json.title);\n  const candidates = [\n    item.json.content,\n    item.json['content:encoded'],\n    item.json.description,\n    item.json.contentSnippet,\n    item.json.summary\n  ].filter(Boolean);\n  const desc = cleanText(candidates.sort((a, b) => b.length - a.length)[0] || '');\n  const isYouTube = domain === 'youtube.com';\n  const prompt = 'Summarize this news in 2-3 sentences. Output ONLY the summary, nothing else. No introductions, no prefixes, no meta-commentary. --- Title: ' + title + ' --- Content: ' + (desc || 'No content provided, summarize from title only.');\n  newItems.push({\n    json: {\n      title: title,\n      link: rawUrl,\n      description: desc,\n      source: meta.source,\n      category: meta.category,\n      skipOllama: isYouTube,\n      prompt: prompt,\n      groqBody: isYouTube ? '' : JSON.stringify({\n        model: 'llama-3.1-8b-instant',\n        messages: [{role: 'user', content: prompt}],\n        temperature: 0.3,\n        max_tokens: 200\n      })\n    }\n  });\n}\nif (newItems.length === 0) return [];\nreturn newItems.slice(0, 20);"
+        "jsCode": "const items = $input.all();\nconst sourceMap = {\n  'pcgamer.com': { source: 'PC Gamer', category: 'gaming' },\n  'rockpapershotgun.com': { source: 'Rock Paper Shotgun', category: 'gaming' },\n  'eurogamer.net': { source: 'Eurogamer', category: 'gaming' },\n  'techpowerup.com': { source: 'TechPowerUp', category: 'hardware' },\n  'phoronix.com': { source: 'Phoronix', category: 'hardware' },\n  'gamingonlinux.com': { source: 'GamingOnLinux', category: 'proton' },\n  'youtube.com': { source: 'Digital Foundry', category: 'hardware' },\n  'gamespot.com': { source: 'GameSpot', category: 'gaming' },\n  'ign.com': { source: 'IGN', category: 'gaming' }\n};\n\nconst getDomain = (url) => {\n  if (url.includes('youtube.com')) return 'youtube.com';\n  if (url.includes('pcgamer.com')) return 'pcgamer.com';\n  if (url.includes('rockpapershotgun.com')) return 'rockpapershotgun.com';\n  if (url.includes('eurogamer.net')) return 'eurogamer.net';\n  if (url.includes('techpowerup.com')) return 'techpowerup.com';\n  if (url.includes('phoronix.com')) return 'phoronix.com';\n  if (url.includes('gamingonlinux.com')) return 'gamingonlinux.com';\n  if (url.includes('gamespot.com')) return 'gamespot.com';\n  if (url.includes('ign.com')) return 'ign.com';\n  return '';\n};\n\nconst cleanText = (str) => (str || '')\n  .replace(/\\s+/g, ' ')\n  .replace(/[\"\"\"]/g, \"'\")\n  .replace(/\\\\/g, '')\n  .replace(/[\\r\\n\\t]/g, ' ')\n  .replace(/<[^>]*>/g, '')\n  .substring(0, 1500)\n  .trim();\n\n// Max Items pro Feed — verhindert dass ein großer Feed alles dominiert\nconst MAX_PER_SOURCE = 3;\n\nconst seenInBatch = {};\nconst perSource = {};\nconst newItems = [];\n\nfor (const item of items) {\n  const rawUrl = item.json.link || item.json.id || '';\n  if (!rawUrl || seenInBatch[rawUrl]) continue;\n  seenInBatch[rawUrl] = true;\n\n  const domain = getDomain(rawUrl);\n  const meta = sourceMap[domain] || { source: 'Unknown', category: 'gaming' };\n\n  // Pro Feed auf MAX_PER_SOURCE begrenzen\n  perSource[meta.source] = perSource[meta.source] || 0;\n  if (perSource[meta.source] >= MAX_PER_SOURCE) continue;\n  perSource[meta.source]++;\n\n  const title = cleanText(item.json.title);\n  const candidates = [\n    item.json.content,\n    item.json['content:encoded'],\n    item.json.description,\n    item.json.contentSnippet,\n    item.json.summary\n  ].filter(Boolean);\n  const desc = cleanText(candidates.sort((a, b) => b.length - a.length)[0] || '');\n  const isYouTube = domain === 'youtube.com';\n  const prompt = 'Summarize this news in 2-3 sentences. Output ONLY the summary, nothing else. No introductions, no prefixes, no meta-commentary. --- Title: ' + title + ' --- Content: ' + (desc || 'No content provided, summarize from title only.');\n\n  newItems.push({\n    json: {\n      title,\n      link: rawUrl,\n      description: desc,\n      source: meta.source,\n      category: meta.category,\n      skipOllama: isYouTube,\n      prompt,\n      groqBody: isYouTube ? '' : JSON.stringify({\n        model: 'llama-3.1-8b-instant',\n        messages: [{ role: 'user', content: prompt }],\n        temperature: 0.3,\n        max_tokens: 200\n      })\n    }\n  });\n}\n\nif (newItems.length === 0) return [];\nreturn newItems;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        336,
-        1120
+        5104,
+        1936
       ],
-      "id": "ec482f4d-2485-4eb5-a8d9-aff3c8325b65",
-      "name": "Code in JavaScript2"
+      "id": "9b40cbcb-9282-43d0-be91-a40e11d66823",
+      "name": "Parse Feed Items"
     },
     {
       "parameters": {
         "method": "POST",
         "url": "http://backend:8080/api/llm/summarize",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\"prompt\": \"{{ $('Loop Over Items1').item.json.prompt }}\"}",
+        "jsonBody": "={\"prompt\": \"{{ $('Loop Over Items').item.json.prompt }}\"}",
         "options": {
           "batching": {
             "batch": {
@@ -53,26 +55,32 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1312,
-        1120
+        6080,
+        1936
       ],
-      "id": "dc50e0a8-f87e-4008-984c-f68fdf8ba0db",
-      "name": "HTTP Request3",
-      "alwaysOutputData": true
+      "id": "d80f2531-589e-4b68-bd75-babef0836b97",
+      "name": "LLM Summarize",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "0VqYLTryWIkSg9lF",
+          "name": "GamingPulse Backend"
+        }
+      }
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const original = $('Code in JavaScript2').item.json;\nconst response = $('HTTP Request3').item.json;\n\nconst category = original.category || 'gaming';\nconst title = original.title || 'No title';\nconst link = original.link || '';\n\nconst hashtag = { gaming: '#gaming', hardware: '#hardware', proton: '#proton' }[category] || '#gaming';\nconst emoji = { gaming: '🎮', hardware: '🔧', proton: '🐧' }[category] || '🎮';\n\nlet msg;\n\nif (original.skipOllama) {\n  msg = `${hashtag}\\n\\n${emoji} ${title}\\n\\n${link}`;\n} else {\n  let summary = (response.summary || 'No summary available').trim();\n  \n  summary = summary\n    .replace(/^(here is|here's|here are)[^:]*:\\s*/i, '')\n    .replace(/^(summary|overview|in summary)[^:]*:\\s*/i, '')\n    .replace(/^(the article|this article|this news)[^.]*\\.\\s*/i, '')\n    .replace(/^\\s*\\n+/g, '')\n    .trim();\n\n  msg = `${hashtag}\\n\\n${emoji} *${title}*\\n\\n${summary}\\n\\n${link}`;\n}\n\nreturn { json: { message: msg } };"
+        "jsCode": "const original = $('Parse Feed Items').item.json;\nconst response = $('LLM Summarize').item.json;\nconst category = original.category || 'gaming';\nconst title = original.title || 'No title';\nconst link = original.link || '';\nconst hashtag = { gaming: '#gaming', hardware: '#hardware', proton: '#proton' }[category] || '#gaming';\nconst emoji = { gaming: '🎮', hardware: '🔧', proton: '🐧' }[category] || '🎮';\nlet msg;\nif (original.skipOllama) {\n  msg = `${hashtag}\\n\\n${emoji} ${title}\\n\\n${link}`;\n} else {\n  let summary = (response.summary || 'No summary available').trim();\n  \n  summary = summary\n    .replace(/^(here is|here's|here are)[^:]*:\\s*/i, '')\n    .replace(/^(summary|overview|in summary)[^:]*:\\s*/i, '')\n    .replace(/^(the article|this article|this news)[^.]*\\.\\s*/i, '')\n    .replace(/^\\s*\\n+/g, '')\n    .trim();\n  msg = `${hashtag}\\n\\n${emoji} *${title}*\\n\\n${summary}\\n\\n${link}`;\n}\nreturn { json: { message: msg } };"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1552,
-        1120
+        6320,
+        1936
       ],
-      "id": "1e99284a-63b7-49a7-a4ce-f92c44219b75",
-      "name": "Code in JavaScript3"
+      "id": "51935503-fe15-45e2-9064-9f0f714e7550",
+      "name": "Build Prompt"
     },
     {
       "parameters": {
@@ -87,15 +95,15 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        1776,
-        1120
+        6544,
+        1936
       ],
-      "id": "8dc6fe72-fe99-4b37-9a18-479b42b1da73",
-      "name": "Send a text message1",
+      "id": "d34f7b0e-3d59-4584-ad54-b76e68879a7d",
+      "name": "Send Telegram Message",
       "webhookId": "d4ddf247-1478-4246-b8c8-44f1da248037",
       "credentials": {
         "telegramApi": {
-          "id": "gbYp8j1ZCYYjCMt5",
+          "id": "Twxi9XGw1JOgletO",
           "name": "Telegram account"
         }
       }
@@ -107,21 +115,21 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        528,
-        1120
+        5296,
+        1936
       ],
-      "id": "22fd7a3a-a517-4180-8c1f-2ee15c8372d8",
-      "name": "Loop Over Items1"
+      "id": "4a8416a7-b6a6-4e84-9d1a-ed72520c8b70",
+      "name": "Loop Over Items"
     },
     {
       "parameters": {},
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        2176,
-        1136
+        6944,
+        1952
       ],
-      "id": "8efce35b-392a-41f5-973e-9dfc01981026",
+      "id": "dc825fd0-eac1-4fd5-b540-0b3d8a9bee2e",
       "name": "Wait1",
       "webhookId": "fa08314e-270c-47b3-8ba6-50afb72634de"
     },
@@ -133,11 +141,12 @@
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.2,
       "position": [
-        -272,
-        640
+        4496,
+        1456
       ],
-      "id": "68aee6da-9027-4c50-8f23-e161ebe476b0",
-      "name": "RSS PC Gamer1"
+      "id": "0dc35bc5-0f58-469c-9a3e-5c76fc8f2cc8",
+      "name": "RSS PC Gamer1",
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -147,11 +156,12 @@
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.2,
       "position": [
-        -272,
-        784
+        4496,
+        1600
       ],
-      "id": "8009bfd2-eb71-4b76-9df9-24d338ad4a8b",
-      "name": "RSS Rock Paper Shotgun1"
+      "id": "f9528d8e-daef-46eb-9e76-605079566270",
+      "name": "RSS Rock Paper Shotgun1",
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -161,11 +171,12 @@
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.2,
       "position": [
-        -272,
-        928
+        4496,
+        1744
       ],
-      "id": "344a4858-4a6c-4ac0-b094-75fd47214836",
-      "name": "RSS Eurogamer1"
+      "id": "639812bd-5d60-4311-ae01-d301c0a7af36",
+      "name": "RSS Eurogamer1",
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -175,11 +186,12 @@
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.2,
       "position": [
-        -272,
-        1104
+        4496,
+        1920
       ],
-      "id": "66450375-77df-4823-a6f8-efb7c7c4f4e6",
-      "name": "RSS TechPowerUp1"
+      "id": "06a699bd-8fdf-4e63-baf2-a2f9c8ebd9f5",
+      "name": "RSS TechPowerUp1",
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -189,11 +201,12 @@
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.2,
       "position": [
-        -272,
-        1296
+        4496,
+        2112
       ],
-      "id": "9e3128aa-bf55-4552-8f67-5ae0de4a376c",
-      "name": "RSS GamingOnLinux1"
+      "id": "31ddb302-4767-4435-913e-11a08fd3a859",
+      "name": "RSS GamingOnLinux1",
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -203,11 +216,12 @@
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.2,
       "position": [
-        -272,
-        1472
+        4496,
+        2288
       ],
-      "id": "af19e52d-a1e6-4d59-8c3a-621a422c01fc",
-      "name": "RSS Phoronix1"
+      "id": "890369fb-c6ec-4122-98e6-4096199479b2",
+      "name": "RSS Phoronix1",
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -216,10 +230,10 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        128,
-        1040
+        4896,
+        1856
       ],
-      "id": "61499b4c-75c0-45a0-8902-3a6ebeb1a9f4",
+      "id": "6bbb64da-1290-493a-86a5-83096f3ac59c",
       "name": "Merge1"
     },
     {
@@ -230,30 +244,19 @@
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.2,
       "position": [
-        -272,
-        1648
+        4496,
+        2464
       ],
-      "id": "de6adbe6-9c8e-4074-82d2-113d26c48e6c",
-      "name": "RSS Digital Foundry1"
-    },
-    {
-      "parameters": {
-        "url": "https://github.com/optiscaler/OptiScaler/releases.atom",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.rssFeedRead",
-      "typeVersion": 1.2,
-      "position": [
-        -272,
-        1824
-      ],
-      "id": "5f3ac71d-6109-4526-acc4-01e5a737f75e",
-      "name": "RSS Optiscaler1"
+      "id": "a017d4a8-f46b-4077-914d-7a253cc9f155",
+      "name": "RSS Digital Foundry1",
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "method": "POST",
         "url": "http://backend:8080/api/dedup/check",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -272,11 +275,17 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        768,
-        1136
+        5536,
+        1952
       ],
-      "id": "acef8ea7-899e-4b88-953e-f4ab58e9e15f",
-      "name": "HTTP Request4"
+      "id": "344ace96-473c-4841-9e98-3d14e2d75322",
+      "name": "Dedup Check",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "0VqYLTryWIkSg9lF",
+          "name": "GamingPulse Backend"
+        }
+      }
     },
     {
       "parameters": {
@@ -306,34 +315,36 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        960,
-        1136
+        5728,
+        1952
       ],
-      "id": "3c044dc7-d09d-42fa-930d-c29b0ee7eede",
+      "id": "b42b8c81-0a39-4e4b-b0b5-9f00db5cd4a6",
       "name": "If1"
     },
     {
       "parameters": {
         "method": "POST",
         "url": "http://backend:8080/api/posts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
             {
               "name": "title",
-              "value": "={{ $('Code in JavaScript2').item.json.title }}"
+              "value": "={{$('Parse Feed Items').item.json.title}}"
             },
             {
               "name": "link",
-              "value": "={{ $('Code in JavaScript2').item.json.link }}"
+              "value": "={{$('Parse Feed Items').item.json.link}}"
             },
             {
               "name": "source",
-              "value": "={{ $('Code in JavaScript2').item.json.source }}"
+              "value": "={{ ('Parse Feed Items').item.json.source }}"
             },
             {
               "name": "category",
-              "value": "={{ $('Code in JavaScript2').item.json.category }}"
+              "value": "={{$('Parse Feed Items').item.json.category}}"
             },
             {
               "name": "summary",
@@ -350,30 +361,22 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1968,
-        1120
+        6736,
+        1936
       ],
-      "id": "6809747c-a195-487a-b1f6-603af595531c",
-      "name": "HTTP Request5"
-    },
-    {
-      "parameters": {
-        "url": "https://www.gamespot.com/feeds/mashup/",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.rssFeedRead",
-      "typeVersion": 1.2,
-      "position": [
-        -272,
-        2096
-      ],
-      "id": "a75b567f-409a-4948-9435-012e2010a646",
-      "name": "RSS Optiscaler"
+      "id": "3048d850-7033-4866-911d-c62ac7b1b6ab",
+      "name": "Save Post",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "0VqYLTryWIkSg9lF",
+          "name": "GamingPulse Backend"
+        }
+      }
     }
   ],
   "pinData": {},
   "connections": {
-    "Schedule Trigger1": {
+    "Schedule Trigger": {
       "main": [
         [
           {
@@ -410,70 +413,60 @@
             "node": "RSS Digital Foundry1",
             "type": "main",
             "index": 0
-          },
-          {
-            "node": "RSS Optiscaler1",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "RSS Optiscaler",
-            "type": "main",
-            "index": 0
           }
         ]
       ]
     },
-    "Code in JavaScript2": {
+    "Parse Feed Items": {
       "main": [
         [
           {
-            "node": "Loop Over Items1",
+            "node": "Loop Over Items",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "HTTP Request3": {
+    "LLM Summarize": {
       "main": [
         [
           {
-            "node": "Code in JavaScript3",
+            "node": "Build Prompt",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Code in JavaScript3": {
+    "Build Prompt": {
       "main": [
         [
           {
-            "node": "Send a text message1",
+            "node": "Send Telegram Message",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Send a text message1": {
+    "Send Telegram Message": {
       "main": [
         [
           {
-            "node": "HTTP Request5",
+            "node": "Save Post",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Loop Over Items1": {
+    "Loop Over Items": {
       "main": [
         [],
         [
           {
-            "node": "HTTP Request4",
+            "node": "Dedup Check",
             "type": "main",
             "index": 0
           }
@@ -484,7 +477,7 @@
       "main": [
         [
           {
-            "node": "Loop Over Items1",
+            "node": "Loop Over Items",
             "type": "main",
             "index": 0
           }
@@ -561,7 +554,7 @@
       "main": [
         [
           {
-            "node": "Code in JavaScript2",
+            "node": "Parse Feed Items",
             "type": "main",
             "index": 0
           }
@@ -579,18 +572,7 @@
         ]
       ]
     },
-    "RSS Optiscaler1": {
-      "main": [
-        [
-          {
-            "node": "Merge1",
-            "type": "main",
-            "index": 7
-          }
-        ]
-      ]
-    },
-    "HTTP Request4": {
+    "Dedup Check": {
       "main": [
         [
           {
@@ -605,7 +587,7 @@
       "main": [
         [
           {
-            "node": "HTTP Request3",
+            "node": "LLM Summarize",
             "type": "main",
             "index": 0
           }
@@ -619,24 +601,13 @@
         ]
       ]
     },
-    "HTTP Request5": {
+    "Save Post": {
       "main": [
         [
           {
             "node": "Wait1",
             "type": "main",
             "index": 0
-          }
-        ]
-      ]
-    },
-    "RSS Optiscaler": {
-      "main": [
-        [
-          {
-            "node": "Merge1",
-            "type": "main",
-            "index": 8
           }
         ]
       ]
@@ -647,11 +618,11 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "b845a17b-66b1-4c17-bc71-5cc3f4f9d635",
+  "versionId": "90611a55-80a4-4893-a70f-e1d7a6e94638",
   "meta": {
     "templateCredsSetupCompleted": true,
-    "instanceId": "dc36f107d716952b8712443a95839ccfdeb3cfcab49776b7517b0ec4ad582e59"
+    "instanceId": "6a45e56abf1dff98cc7b1e51358496ce29f552649d795008a43aebe8309d0453"
   },
-  "id": "gLA4oxDl1dFzTIsK",
+  "id": "PAw86CI6yj9C2oli",
   "tags": []
 }
