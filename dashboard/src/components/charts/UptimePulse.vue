@@ -14,7 +14,7 @@ const props = defineProps<{
 }>()
 
 const canvas = ref<HTMLCanvasElement | null>(null)
-let chart: Chart | null = null
+let chart: Chart<'line'> | null = null
 
 const SERVICE_COLORS: Record<string, string> = {
   backend: '#34d399',
@@ -36,22 +36,25 @@ function buildDatasets() {
   }
 
   return Object.entries(grouped).map(([service, entries]) => ({
-    label:           service,
-    data:            entries.map(e => ({ x: new Date(e.checkedAt), y: statusToValue(e.status) })),
-    borderColor:     SERVICE_COLORS[service] ?? '#8b8fa3',
-    backgroundColor: 'transparent',
-    borderWidth:     2,
-    pointRadius:     2,
-    pointHoverRadius: 4,
-    stepped:         'before' as const,
-    tension:         0
+    label:                service,
+    data:                 entries.map(e => ({
+                            x: new Date(e.checkedAt).getTime(),
+                            y: statusToValue(e.status)
+                          })),
+    borderColor:          SERVICE_COLORS[service] ?? '#8b8fa3',
+    backgroundColor:      'transparent',
+    borderWidth:          2,
+    pointRadius:          2,
+    pointHoverRadius:     4,
+    stepped:              'before' as const,
+    tension:              0
   }))
 }
 
 function buildChart() {
   if (!canvas.value) return
 
-  chart = new Chart(canvas.value, {
+  chart = new Chart<'line'>(canvas.value, {
     type: 'line',
     data: { datasets: buildDatasets() },
     options: {
@@ -82,7 +85,7 @@ function buildChart() {
           padding:         10,
           callbacks: {
             label: item => {
-              const v = item.raw as { y: number }
+              const v = item.raw as { x: number; y: number }
               const label = v.y === 1 ? 'up' : v.y === 0.5 ? 'degraded' : 'down'
               return ` ${item.dataset.label}: ${label}`
             }
