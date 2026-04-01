@@ -59,17 +59,12 @@ function totalErrors(s: Record<string, number>): number {
               <td class="time-col">{{ formatTime(err.occurredAt) }}</td>
               <td class="source-col">{{ err.source }}</td>
               <td class="msg-col">{{ err.message }}</td>
-              <td>
-
-                  v-if="err.url"
-                  :href="err.url"
-                  target="_blank"
-                  class="url-link"
-                >
-                  Link
-                </a>
-                <span v-else class="no-url">—</span>
-              </td>
+                <td>
+                  <template v-if="err.url">
+                    <a :href="err.url" target="_blank" class="url-link">Link</a>
+                  </template>
+                  <span v-else class="no-url">-</span>
+                </td>
             </tr>
           </tbody>
         </table>
