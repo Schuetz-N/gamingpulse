@@ -1,213 +1,189 @@
 # 🎮 GamingPulse
 
-Automated gaming news pipeline that collects content from 8 sources, summarizes articles using a local LLM, and delivers curated posts to a Telegram channel — entirely self-hosted, zero cost.
-
-## What it does
-
-GamingPulse polls RSS feeds from major gaming and tech outlets every 30 minutes. New articles are deduplicated against a SQLite database, summarized by a locally-running LLM (Ollama), formatted with category hashtags, and posted to a private Telegram channel with link previews. A Vue 3 dashboard provides real-time monitoring of all services.
+Self-hosted gaming news aggregator. Pulls RSS feeds from 7 sources, summarizes articles via Groq, and delivers curated posts to a Telegram channel. A Vue 3 dashboard provides live monitoring.
 
 ## Architecture
-
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                    Podman Compose Stack                      │
-│                                                              │
-│  ┌───────────┐    ┌───────────┐    ┌──────────────────────┐  │
-│  │   n8n     │──▶│  Ollama   │    │   Spring Boot API    │  │
-│  │  :5678    │◀──│  :11434   │    │       :8080          │  │
-│  │           │    │           │    │                      │  │
-│  │ Workflows │    │ ROCm GPU  │    │ - Dedup (SQLite)     │  │
-│  │ RSS Feeds │    │ llama3.1  │    │ - Post history       │  │
-│  │ Telegram  │    │ 8B Q8     │    │ - Health checks      │  │
-│  └─────┬─────┘    └───────────┘    │ - Dashboard REST API │  │
-│        │               ▲           └──────────┬───────────┘  │
-│        │               │                      │              │
-│        │          ┌────┴───────┐    ┌─────────┴──────────┐   │
-│        │          │ AMD GPU    │    │   Vue 3 Dashboard  │   │
-│        │          │ RX7900 GRE │    │      :3000         │   │
-│        │          │ 16GB VRAM  │    │                    │   │
-│        │          └────────────┘    │ - Service status   │   │
-│        ▼                            │ - Post history     │   │
-│  ┌───────────┐                      │ - Error log        │   │
-│  │  SQLite   │◀────────────────────┘                    │   │
-│  └───────────┘                                           │   │
-└──────────────────────────────────────────────────────────────┘
-        │
-        ▼
-  RSS / YouTube / GitHub ──▶ Telegram Channel
+Schedule Trigger (every 15 min)
+  → RSS Feeds (7 sources)
+  → Merge
+  → Loop over items
+      → Dedup check        POST /api/dedup/check
+      → LLM summarize      POST /api/llm/summarize  (Groq)
+      → Send Telegram
+      → Save post          POST /api/posts
 ```
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Workflow Engine | n8n (Community Edition) |
-| LLM Inference | Ollama + llama3.1:8b via ROCm |
-| GPU | AMD Radeon RX 7900 GRE (16GB VRAM) |
+| Workflow engine | n8n (Community Edition) |
+| LLM | Groq API (llama-3.1-8b-instant) |
 | Backend | Java 25 + Spring Boot 4 + Maven |
-| Database | SQLite (dedup, post history, error log) |
-| Dashboard | Vue 3 + TypeScript + Vite |
+| Database | SQLite (via Hibernate) |
+| Dashboard | Vue 3 + TypeScript + Vite + Chart.js |
+| Proxy | nginx (inside dashboard container) |
 | Containers | Podman + podman-compose (rootless) |
+| CI/CD | GitHub Actions → SSH → Contabo VPS |
 | Messaging | Telegram Bot API |
-| OS | Nobara Linux (Fedora-based) |
 
 ## Content Sources
 
-### #gaming
-- **PC Gamer** — pcgamer.com/rss
-- **Rock Paper Shotgun** — rockpapershotgun.com/feed/news
-- **Eurogamer** — eurogamer.net/feed
-
-### #hardware
-- **TechPowerUp** — techpowerup.com/rss/news
-- **Phoronix** — phoronix.com/rss.php
-- **Digital Foundry** — YouTube RSS feed
-
-### #proton
-- **GamingOnLinux** — gamingonlinux.com/article_rss.php
-- **OptiScaler** — GitHub Releases Atom feed
-
-## Features
-
-- **Automatic summarization** — Articles are summarized in 2-3 sentences by a local LLM
-- **YouTube video previews** — YouTube links are posted without Markdown so Telegram renders the video preview
-- **Smart deduplication** — URL normalization + SQLite-backed dedup prevents duplicate posts across runs
-- **Rate limit handling** — Posts are queued with 5-second intervals to stay under Telegram's API limits
-- **Category tagging** — Each post gets a hashtag (#gaming, #hardware, #proton) based on the source
-- **Link previews** — All posts include the source URL for Telegram to generate previews
-- **Plugin-based sources** — Add new sources by dropping a YAML config file
-- **Self-hosted & free** — Zero external API costs, all inference runs on local GPU
-- **Health monitoring** — Dashboard shows real-time status of all 4 services
+| Source | Category |
+|---|---|
+| PC Gamer | #gaming |
+| Rock Paper Shotgun | #gaming |
+| Eurogamer | #gaming |
+| TechPowerUp | #hardware |
+| Phoronix | #hardware |
+| Digital Foundry (YouTube) | #hardware |
+| GamingOnLinux | #proton |
 
 ## Services
 
-| Service | Port | Purpose |
+| Service | Port | Access |
 |---|---|---|
-| n8n | :5678 | Workflow automation, RSS polling, Telegram posting |
-| Ollama | :11434 | Local LLM inference with AMD GPU acceleration |
-| Spring Boot | :8080 | REST API for dedup, post history, health checks |
-| Dashboard | :3000 | Vue 3 monitoring UI |
+| Dashboard | 3000 | SSH tunnel only |
+| n8n | 5678 | SSH tunnel only |
+| Backend | 8080 | Internal only (no public port) |
 
-## Quick Start
+All ports are bound to `127.0.0.1` — no public exposure except SSH.
+
+## Setup
 
 ### Prerequisites
 
+- Contabo VPS (or any Linux server) with SSH access
 - Podman + podman-compose
-- AMD GPU with ROCm support (or modify for CPU-only)
-- Telegram Bot Token ([create via @BotFather](https://t.me/BotFather))
+- GitHub account (for Actions CI/CD)
+- Telegram Bot Token (via [@BotFather](https://t.me/BotFather))
+- Groq API key ([console.groq.com](https://console.groq.com))
 
-### Setup
-
+### Configure
 ```bash
-git clone https://github.com/YOUR_USERNAME/gamingpulse.git
+git clone https://github.com/Schuetz-N/gamingpulse.git
 cd gamingpulse
-
-# Configure
 cp .env.example .env
-nano .env  # Add your Telegram bot token and channel ID
-
-# Start
-./scripts/start.sh
-
-# Access
-# Dashboard:  http://localhost:3000
-# n8n:        http://localhost:5678
-# Backend:    http://localhost:8080/api/status
+nano .env
 ```
 
-### First Run
+### Deploy
 
-On the first start, the pipeline will process all current articles from all feeds. After the initial run, only new articles trigger posts (typically 1-5 per 30-minute cycle).
-
-## Project Structure
-
+Push to `main` triggers the GitHub Actions pipeline automatically:
 ```
-gamingpulse/
-├── podman-compose.yml          # All 4 services
-├── .env.example                # Environment template
-├── scripts/
-│   ├── start.sh                # Start all services
-│   └── stop.sh                 # Stop all services
-├── sources/                    # Source configs (YAML)
-│   ├── pcgamer.yml
-│   ├── eurogamer.yml
-│   └── ...
-├── backend/                    # Java 25 + Spring Boot 4
-│   ├── Dockerfile
-│   ├── pom.xml
-│   └── src/main/java/dev/gamingpulse/
-│       ├── controller/         # REST endpoints
-│       ├── model/              # JPA entities
-│       ├── repository/         # Data access
-│       └── service/            # Business logic
-├── dashboard/                  # Vue 3 + TypeScript
-│   ├── Dockerfile
-│   ├── package.json
-│   └── src/
-│       ├── views/              # Status, Posts, Errors
-│       ├── api/                # Backend client
-│       └── App.vue             # Layout + routing
-├── n8n-workflows/              # Exported workflow JSON
-│   └── gaming-news-pipeline.json
-└── docs/
-    ├── architecture.md
-    └── adding-sources.md
+push → build backend JAR → build dashboard → copy to VPS → podman-compose up
 ```
+
+### Access via SSH tunnel
+```bash
+# Dashboard
+ssh -L 3000:localhost:3000 user@000.00.00.00 (Server-User@IP-Address)
+
+# n8n
+ssh -L 5678:localhost:5678 user@000.00.00.00 (Server-User@IP-Address)
+```
+
+> Always start the stack before opening the tunnel — not the other way around.
 
 ## API Endpoints
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/status` | Full system status + stats |
-| GET | `/api/status/health` | Service health checks |
-| POST | `/api/dedup/check` | Check/mark URL as seen |
-| GET | `/api/dedup/count` | Number of tracked URLs |
-| GET | `/api/posts` | Last 50 posted articles |
-| POST | `/api/posts` | Log a posted article |
-| GET | `/api/posts/stats` | Post count by source |
-| GET | `/api/errors` | Last 100 errors |
-| POST | `/api/errors` | Log an error |
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| GET | `/api/status` | Bearer | System status + stats |
+| GET | `/api/status/health` | Public | Health check (used by Podman) |
+| GET | `/api/status/history` | Bearer | Service uptime history |
+| POST | `/api/dedup/check` | Bearer | Check + mark URL as seen |
+| GET | `/api/dedup/count` | Bearer | Number of tracked URLs |
+| GET | `/api/posts` | Bearer | Paginated post list |
+| POST | `/api/posts` | Bearer | Save a post (called by n8n) |
+| GET | `/api/posts/stats` | Bearer | Post count by source |
+| GET | `/api/posts/history` | Bearer | Post activity over time |
+| GET | `/api/errors` | Bearer | Last 100 errors |
+| POST | `/api/errors` | Bearer | Log an error (called by n8n) |
+| GET | `/api/errors/stats` | Bearer | Error count by source |
 
-## Adding a New Source
+All authenticated endpoints require `Authorization: Bearer <API_AUTH_TOKEN>`.
 
-Create a YAML file in `sources/`:
-
-```yaml
-name: Ars Technica Gaming
-type: rss
-url: https://feeds.arstechnica.com/arstechnica/gaming
-category: gaming
-enabled: true
-poll_interval_minutes: 30
+## Project Structure
+```
+gamingpulse/
+├── .github/workflows/
+│   └── deploy.yml                  # CI/CD pipeline
+├── podman-compose.yml
+├── .env.example
+├── scripts/
+│   ├── start.sh
+│   └── stop.sh
+├── backend/
+│   ├── Dockerfile
+│   ├── pom.xml
+│   └── src/main/
+│       ├── java/dev/gamingpulse/
+│       │   ├── config/             # Security, CORS, Web
+│       │   ├── controller/         # REST endpoints
+│       │   ├── model/              # JPA entities
+│       │   ├── repository/         # Data access
+│       │   ├── security/           # API key filter
+│       │   └── service/            # Business logic
+│       └── resources/
+│           └── application.properties
+├── dashboard/
+│   ├── Dockerfile
+│   ├── nginx.conf
+│   ├── package.json
+│   └── src/
+│       ├── api/
+│       │   └── client.ts           # API client
+│       ├── components/
+│       │   ├── charts/             # ActivityChart, UptimePulse
+│       │   └── ui/                 # StatusBadge, StatCard, ...
+│       ├── composables/            # useStatus, usePosts, useErrors, ...
+│       ├── types/
+│       │   └── index.ts            # Shared TypeScript interfaces
+│       ├── views/                  # StatusView, PostsView, ErrorsView
+│       ├── assets/
+│       │   └── main.css
+│       ├── App.vue
+│       └── main.ts
+└── n8n-workflows/
+    └── GamingPulse_-_RSS_Pipeline.json
 ```
 
-Then add an RSS Read node in n8n, connect it to the Merge node, and add the domain to the source map in the dedup Code node.
+## Secrets
 
-## Telegram Output Example
+All secrets are stored as GitHub Actions Secrets and written to `/opt/gamingpulse/.env` on the VPS during deployment.
 
+| Secret | Description |
+|---|---|
+| `VPS_HOST` | SSH target |
+| `VPS_USER` | SSH user |
+| `VPS_SSH_KEY` | SSH private key |
+| `VPS_SSH_PASSPHRASE` | SSH key passphrase |
+| `N8N_PASSWORD` | n8n basic auth password |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token |
+| `TELEGRAM_CHANNEL_ID` | Target channel ID |
+| `GROQ_API_KEY` | Groq API key |
+| `API_AUTH_TOKEN` | Internal shared secret (openssl rand -hex 32) |
+
+## Adding a Source
+
+1. Add the domain to `sourceMap` and `getDomain` in the **Parse Feed Items** Code node in n8n:
+```javascript
+// sourceMap
+'arstechnica.com': { source: 'Ars Technica', category: 'gaming' },
+
+// getDomain
+if (url.includes('arstechnica.com')) return 'arstechnica.com';
 ```
-#gaming
 
-🎮 Starfield gets massive free update with new quest line and ship customization
+2. Add a new **RSS Feed Read** node in n8n with the feed URL
+3. Connect **Schedule Trigger** → new node → **Merge**
+4. Export the updated workflow JSON and commit to `n8n-workflows/`
 
-Bethesda has released a major free update for Starfield adding a new
-faction quest line spanning 8 missions and an overhauled ship builder.
-The update also addresses over 200 reported bugs and adds DLSS 3 support.
+### Finding RSS feed URLs
 
-https://www.pcgamer.com/starfield-free-update-2026/
-```
-
-## Skills Demonstrated
-
-- **Java 25 + Spring Boot 4** — REST API, JPA, SQLite, service architecture
-- **Vue 3 + TypeScript** — SPA with router, API client, reactive data
-- **Container orchestration** — Multi-service Podman Compose stack
-- **AI/LLM integration** — Local Ollama inference, prompt engineering
-- **Workflow automation** — n8n with 8 RSS feeds, dedup, rate limiting
-- **API integration** — Telegram Bot API, RSS/Atom, YouTube, GitHub
-- **Linux / DevOps** — ROCm GPU acceleration, Nobara, shell scripts
-- **Software architecture** — Plugin-based sources, clean separation of concerns
-
+Most sites follow one of these patterns: `/rss`, `/feed`, `/rss.xml`. YouTube channels use `https://www.youtube.com/feeds/videos.xml?channel_id=CHANNEL_ID`.
 ## License
 
 MIT

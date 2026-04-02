@@ -1,131 +1,148 @@
-# GamingPulse Architecture
-
-## System Overview
-
-GamingPulse runs as a 4-container Podman Compose stack on a local Linux desktop. All processing happens on-device — no cloud services, no API costs.
+# GamingPulse — Architecture
 
 ## Pipeline Flow
-
 ```
- TRIGGER (every 30 min)
-     │
-     ▼
- FETCH (8 RSS feeds in parallel)
-     │
-     ▼
- MERGE (combine all feed items)
-     │
-     ▼
- CLEAN (normalize text, extract best content field, assign source + category)
-     │
-     ▼
- LOOP (process one article at a time)
-     │
-     ▼
- DEDUP CHECK ──► Spring Boot API ──► SQLite
-     │
-     ├── Already seen → skip, next item
-     │
-     └── New article ↓
-                      │
-                 SUMMARIZE ──► Ollama (llama3.1:8b on AMD GPU)
-                      │
-                  FORMAT (hashtag + title + summary + link)
-                      │
-                  TELEGRAM (post to channel)
-                      │
-                  LOG POST ──► Spring Boot API ──► SQLite
-                      │
-                  WAIT (5 seconds, rate limit)
-                      │
-                  NEXT ITEM (loop back)
+Schedule Trigger (every 15 min)
+    │
+    ▼
+RSS Feeds (7 sources, parallel)
+    │
+    ▼
+Merge
+    │
+    ▼
+Parse & Normalize (Code Node)
+  - URL extraction
+  - Source + category mapping
+  - Text cleanup (strip HTML, limit to 1500 chars)
+  - Groq prompt assembly
+  - Max 3 articles per source per run
+    │
+    ▼
+Loop over items
+    │
+    ▼
+Dedup Check ──► POST /api/dedup/check ──► SQLite
+    │
+    ├── Already seen → Wait → next item
+    │
+    └── New article
+            │
+        LLM Summarize ──► POST /api/llm/summarize ──► Groq API
+            │
+        If: summary not empty
+            │
+            ├── yes → Build Telegram message
+            │               │
+            │           Send Telegram
+            │               │
+            │           Save Post ──► POST /api/posts ──► SQLite
+            │               │
+            │           Wait → next item
+            │
+            └── no  → Wait → next item
 ```
 
 ## Container Network
 
-All containers share the `gamingpulse_default` Podman bridge network and communicate via DNS names:
+All containers share the `gamingpulse_net` Podman bridge network and communicate via DNS name.
 
-| Container | DNS Name | Port | Accessible from host |
+| Container | DNS Name | Internal Port | Host Binding |
 |---|---|---|---|
-| gamingpulse-n8n | `n8n` | 5678 | http://localhost:5678 |
-| gamingpulse-ollama | `ollama` | 11434 | http://localhost:11434 |
-| gamingpulse-backend | `backend` | 8080 | http://localhost:8080 |
-| gamingpulse-dashboard | `dashboard` | 3000 | http://localhost:3000 |
+| gamingpulse-n8n | `n8n` | 5678 | 127.0.0.1:5678 |
+| gamingpulse-backend | `backend` | 8080 | none (expose only) |
+| gamingpulse-dashboard | `dashboard` | 80 | 127.0.0.1:3000 |
 
-## Data Flow
+The backend has no host binding — it is only reachable from within the container network. The dashboard nginx container proxies `/api/` requests to `http://backend:8080/api/`.
 
-### RSS → n8n
-n8n polls 8 RSS feeds every 30 minutes. Each feed returns 10-50 items (titles, descriptions, links).
+## Security
+```
+Browser
+  │  Bearer <API_AUTH_TOKEN>
+  ▼
+nginx (dashboard container)
+  │  proxy_pass + proxy_pass_header Authorization
+  ▼
+Spring Boot
+  │
+  ApiKeyAuthFilter (OncePerRequestFilter)
+  │  reads Authorization header
+  │  compares against ${API_AUTH_TOKEN}
+  │  sets SecurityContext if valid
+  ▼
+SecurityConfig
+  │  /api/status/health → permitAll
+  │  /actuator/health   → permitAll
+  │  everything else    → authenticated
+  ▼
+Controller
+```
 
-### n8n → Spring Boot (Dedup)
-For each article, n8n sends the URL to `POST /api/dedup/check`. The backend normalizes the URL and checks SQLite. Returns `{"isNew": true/false}`.
-
-### n8n → Ollama (Summarization)
-New articles are sent to Ollama's `/api/generate` endpoint with a summarization prompt. The LLM returns a 2-3 sentence English summary. YouTube links skip this step.
-
-### n8n → Telegram (Posting)
-Formatted messages are sent via the Telegram Bot API. Posts include category hashtag, title, summary, and source link. Rate limited to one post per 5 seconds.
-
-### n8n → Spring Boot (Logging)
-After each successful Telegram post, n8n logs the article to `POST /api/posts` for dashboard display.
+n8n authenticates against the backend using the same `API_AUTH_TOKEN` via the "GamingPulse Backend" HTTP Header Auth credential.
 
 ## Database Schema
 
-### seen_urls
-Tracks all URLs the system has encountered for deduplication.
-
-| Column | Type | Purpose |
-|---|---|---|
-| id | BIGINT PK | Auto-increment |
-| url | VARCHAR(1000) UNIQUE | Normalized URL |
-| source | VARCHAR | Which feed it came from |
-| seen_at | TIMESTAMP | When first seen |
-
 ### posts
-Records all articles posted to Telegram.
 
-| Column | Type | Purpose |
+| Column | Type | Notes |
 |---|---|---|
 | id | BIGINT PK | Auto-increment |
 | title | VARCHAR | Article title |
 | link | VARCHAR UNIQUE | Article URL |
 | source | VARCHAR | Feed source name |
 | category | VARCHAR | gaming / hardware / proton |
-| summary | VARCHAR(2000) | LLM-generated summary |
-| posted_at | TIMESTAMP | When posted |
-| success | BOOLEAN | Post succeeded? |
+| summary | VARCHAR(2000) | Groq-generated summary |
+| posted_at | TIMESTAMP | Instant |
+| success | BOOLEAN | Whether post succeeded |
 
 ### errors
-Logs pipeline errors for debugging.
 
-| Column | Type | Purpose |
+| Column | Type | Notes |
 |---|---|---|
 | id | BIGINT PK | Auto-increment |
 | source | VARCHAR | Which component errored |
 | message | VARCHAR(2000) | Error description |
-| url | VARCHAR | Related URL (if any) |
-| occurred_at | TIMESTAMP | When it happened |
+| url | VARCHAR | Related URL (nullable) |
+| occurred_at | TIMESTAMP | Instant |
 
-## GPU Configuration
+### service_health_records
 
-Ollama runs inside a container with ROCm support. The container mounts `/dev/kfd` and `/dev/dri` for GPU access. No ROCm installation needed on the host.
-
-| Setting | Value | Purpose |
+| Column | Type | Notes |
 |---|---|---|
-| HSA_OVERRIDE_GFX_VERSION | 11.0.0 | Map gfx1100 to ROCm target |
-| OLLAMA_FLASH_ATTENTION | 1 | Enable flash attention |
-| HIP_VISIBLE_DEVICES | 0 | Use first GPU |
-| OLLAMA_NUM_PARALLEL | 1 | One request at a time |
-| OLLAMA_MAX_LOADED_MODELS | 1 | Keep one model in VRAM |
+| id | BIGINT PK | Auto-increment |
+| service | VARCHAR(50) | backend / n8n / groq |
+| status | VARCHAR(20) | up / down / degraded / starting |
+| error_detail | VARCHAR(255) | Exception message (nullable) |
+| checked_at | TIMESTAMP | Instant |
+
+Indexed on `(service, checkedAt)` and `checkedAt` for history queries.
+
+### seen_urls (dedup store)
+
+Managed by `DeduplicationService` — schema depends on existing implementation.
+
+## Health Checks
+
+`HealthCheckService` polls external services every 30 seconds and persists results to `service_health_records`:
+
+| Service | Endpoint | Auth |
+|---|---|---|
+| backend | self-reported | — |
+| n8n | `http://n8n:5678/healthz` | none |
+| groq | `https://api.groq.com/openai/v1/models` | Bearer |
+
+Records older than 30 days are deleted nightly at 03:00 by a `@Scheduled` cleanup job. Same retention applies to `posts` and `errors`.
 
 ## Design Decisions
 
-**Why Podman over Docker?** Pre-installed on Fedora/Nobara, rootless by default, daemonless, OCI-compatible. Zero license concerns.
+**Groq over local LLM** — Switched from Ollama (local GPU) to Groq API. Eliminates GPU dependency, simplifies the container stack, and keeps inference fast without hardware requirements.
 
-**Why Ollama over cloud APIs?** Zero cost, full privacy, no rate limits, works offline. The RX 7900 GRE handles 8B models at 43 tok/s — more than enough for news summaries.
+**SQLite over PostgreSQL** — Single file, no server process, zero ops overhead. Spring Data JPA makes migration straightforward if needed.
 
-**Why n8n over custom code?** Visual workflow builder makes the pipeline transparent and easy to modify. Code nodes allow custom logic where needed. Best of both worlds.
+**n8n over custom code** — Visual pipeline is easy to inspect and modify. Code nodes handle custom logic where needed. Workflow JSON is version-controlled.
 
-**Why SQLite over PostgreSQL?** Single file, no server process, perfect for a local single-user application. Spring Data JPA makes it trivial to swap later if needed.
+**Podman over Docker** — Rootless by default, daemonless, OCI-compatible. No daemon running as root on the host.
 
-**Why file-based source configs?** Adding a new source should be as simple as dropping a YAML file. No database migration, no code change (beyond wiring in n8n).
+**Bearer token over JWT** — Simple shared secret is sufficient for a single-client internal API. No token expiry to manage, no key rotation complexity.
+
+**SSH tunnel over public exposure** — Dashboard and n8n are never publicly reachable. Access requires an active SSH session to the VPS.
